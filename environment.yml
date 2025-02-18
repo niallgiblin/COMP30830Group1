@@ -5,6 +5,7 @@ dependencies:
   - bzip2=1.0.8
   - ca-certificates=2024.12.31
   - expat=2.6.4
+  - flask
   - libcxx=14.0.6
   - libffi=3.4.4
   - libmpdec=4.0.0
