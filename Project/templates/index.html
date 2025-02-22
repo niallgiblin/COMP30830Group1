@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dublin Bike Map</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css')}}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css')}}">
     <script defer src="{{ url_for('static', filename='script.js') }}"></script>
 </head>
 <body>
@@ -13,8 +13,15 @@
         <h1>Dublin Bikes - Live Map</h1>
     </header>
 
-    <!-- Map Section -->
+    <!-- Map div-->
     <div id="map"></div>
+    <!-- Weather div -->
+    <div id="weather"></div>
+    <!-- Station div -->
+    <div id="station"></div>
+    <!-- Chart div -->
+    <div id="chart"></div>
+    
 
 </body>
 </html>
