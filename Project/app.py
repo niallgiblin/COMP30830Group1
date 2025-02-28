@@ -3,10 +3,11 @@ import json
 from sqlalchemy import create_engine, text
 
 app = Flask(__name__, static_url_path='/static') # tell Flask where are the static files (html, js, images, css, etc.)
+app.config['GOOGLE_MAPS_API_KEY'] = 'AIzaSyByv0VXneSKOmPsEfijAVFabcoRf7Okdrk'
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html', google_maps_api_key=app.config['GOOGLE_MAPS_API_KEY'])
 
 '''
 We will connect to the local database, access its content through flask, and 
@@ -41,35 +42,40 @@ def get_stations():
     
     stations = []
     with engine.connect() as conn: #Added this part because lecture's code doesn't work: engine doesn't have "execute" function
-        rows = conn.execute(text("SELECT * FROM station"))
+        query = text("""
+                SELECT * FROM station""")
+        rows = conn.execute(query)
 
-    #rows = engine.execute("SELECT * from station;") # here station is the name of your table in the database
+        #rows = engine.execute("SELECT * from station;") # here station is the name of your table in the database
     
-    for row in rows.mappings(): ##Added the mappings() function to be able to convert to dictionary
-        stations.append(dict(row))
+        for row in rows.mappings(): ##Added the mappings() function to be able to convert to dictionary
+            stations.append(dict(row))
     
     return jsonify(stations=stations)
 
 # Let us retrieve information about a specific station
 @app.route("/available/<int:station_id>")
-def get_stations_one(station_id): #Added "one" to clarify this is for one station
+def get_stations_one(station_id):
     engine = get_db()
     data = []
 
-    # Pass the `station_id` value as a parameter in the execute method
-    
-    with engine.connect() as conn: #Added this part because lecture's code doesn't work: engine doesn't have "execute" function
-        rows = conn.execute(text("SELECT available_bikes from availability where number = {};".format(station_id)))
+    try:
+        with engine.connect() as conn:
+            # Use a parameterized query
+            query = text("SELECT available_bikes, available_bike_stands FROM availability WHERE number = :station_id;")
+            rows = conn.execute(query, {"station_id": station_id})  # Pass parameters as a dictionary
 
-    for row in rows.mappings():
-        data.append(dict(row))
-    
-    return jsonify(available=data)
+            for row in rows.mappings():
+                data.append(dict(row))
+        
+        return jsonify(available=data)
+    except Exception as e:
+        return jsonify(error=str(e)), 500
 
 @app.route('/')
 def root():
-    return 'Navigate http://127.0.0.1:5000/stations'
+    return 'Navigate http://localhost:5500/'
 
 # Run the app
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, port=5500)
