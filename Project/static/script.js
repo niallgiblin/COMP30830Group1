@@ -1,11 +1,10 @@
 let stationData = []; // Store JSON data globally
 let map; // Store the map object globally
 let markers = []; // Store markers for later reference
-let currentInfoWindow = null; // Store the current info window
 
 // Load station data from JSON
 function loadStations() {
-  fetch("/stations") // Fetch station data from your Flask endpoint
+  fetch("/stations")
     .then((response) => response.json())
     .then((data) => {
       console.log("Fetched station data:", data); // Debugging
@@ -16,12 +15,13 @@ function loadStations() {
     .catch((error) => console.error("Error loading stations:", error));
 }
 
-// Populate the dropdown menu with station names
+// Populate the dropdown menu
 function populateDropdown(stations) {
   let dropdown = document.getElementById("stationSelect");
+  dropdown.innerHTML = "<option value=''>Select a station</option>"; // Reset dropdown
   stations.forEach((station) => {
     let option = document.createElement("option");
-    option.value = station.number; // Use station number as value
+    option.value = station.number;
     option.textContent = station.name;
     dropdown.appendChild(option);
   });
@@ -32,67 +32,95 @@ function populateDropdown(stations) {
     if (selectedStation) {
       showStationInfo(selectedStation);
       centerMapOnStation(selectedStation); // Center the map on the selected station
-      fetchAvailability(selectedStation.number); // Fetch availability data
     }
   });
 }
 
-// Show station information when selected from the dropdown
+// Show station information when selected from the dropdown or marker click
 function showStationInfo(station) {
   document.getElementById("stationName").textContent = station.name;
   document.getElementById("stationStatus").textContent = station.status;
-  // Clear availability data until fetchAvailability updates it
-  document.getElementById("availableBikes").textContent = "Loading...";
-  document.getElementById("freeStands").textContent = "Loading...";
+
+  // Fetch availability data and update the DOM
+  fetchAvailability(station.number).then((availability) => {
+    document.getElementById("availableBikes").textContent =
+      availability.available_bikes;
+    document.getElementById("freeStands").textContent =
+      availability.available_bike_stands;
+  });
+
+  // Make the station details visible
+  document.getElementById("stationInfo").style.display = "block";
 }
 
-// Fetch availability data for a specific station
-// function fetchAvailability(station_id) {
-//   fetch(`/available/${station_id}`)
-//     .then((response) => response.json())
-//     .then((data) => {
-//       console.log("Fetched availability data:", data); // Debugging
-//       if (data.available.length > 0) {
-//         const availability = data.available[0];
-//         document.getElementById("availableBikes").textContent =
-//           availability.available_bikes || "N/A";
-//         document.getElementById("freeStands").textContent =
-//           availability.available_bike_stands || "N/A";
-//       } else {
-//         document.getElementById("availableBikes").textContent = "N/A";
-//         document.getElementById("freeStands").textContent = "N/A";
-//       }
-//     })
-//     .catch((error) => console.error("Error fetching availability:", error));
-// }
-
-// Center the map on a specific station
+// Focus on a specific station
 function centerMapOnStation(station) {
   const stationLocation = {
     lat: parseFloat(station.position_lat),
     lng: parseFloat(station.position_lng),
   };
   map.setCenter(stationLocation);
-  map.setZoom(15); // Zoom in for better visibility
+  map.setZoom(16);
 }
 
 // Initialize and add the map
 function initMap() {
-  const dublin = { lat: 53.35014, lng: -6.266155 };
+  const dublin = { lat: 53.3455, lng: -6.2708 };
+  const mapStyles = [
+    // Hide some POI for better performance
+    {
+      featureType: "poi.business",
+      elementType: "labels",
+      stylers: [{ visibility: "off" }],
+    },
+
+    {
+      featureType: "poi",
+      elementType: "labels",
+      stylers: [{ visibility: "off" }],
+    },
+
+    {
+      featureType: "poi.attraction",
+      elementType: "labels",
+      stylers: [{ visibility: "on" }],
+    },
+    {
+      featureType: "poi.park",
+      elementType: "labels",
+      stylers: [{ visibility: "on" }],
+    },
+    {
+      featureType: "poi.sports_complex",
+      elementType: "labels",
+      stylers: [{ visibility: "on" }],
+    },
+  
+    {
+      featureType: "transit",
+      elementType: "labels",
+      stylers: [{ visibility: "off" }],
+    },
+  ];
+
   map = new google.maps.Map(document.getElementById("map"), {
-    zoom: 12,
+    zoom: 14,
     center: dublin,
-    mapId: "YOUR_MAP_ID", // Optional: Add a map ID for styling
+    mapId: "YOUR_MAP_ID",
+    styles: mapStyles, // Apply custom styles
+    mapTypeControl: false, // Disable map type control (satellite view)
+    streetViewControl: false, // Disable street view control
+    zoomControl: false, // Disable zoom control
+    fullscreenControl: false, // Disable fullscreen control
   });
-//   console.log("Map initialized:", map); // Debugging
 }
 
-// Add markers for all stations using classic Marker
+// Add markers for all stations
 function addMarkersToMap(stations) {
   console.log("Adding markers for stations:", stations); // Debugging
   stations.forEach((station) => {
-    const lat = parseFloat(station.position_lat); // Use position_lat
-    const lng = parseFloat(station.position_lng); // Use position_lng
+    const lat = parseFloat(station.position_lat);
+    const lng = parseFloat(station.position_lng);
 
     // Check if lat and lng are valid numbers
     if (isNaN(lat) || isNaN(lng)) {
@@ -110,57 +138,72 @@ function addMarkersToMap(stations) {
       title: station.name,
     });
 
-    // Add a click listener to the marker to show the info window
+    // Add a click listener to the marker
     marker.addListener("click", () => {
-      // Close the current info window if it exists
-      if (currentInfoWindow) {
-        currentInfoWindow.close();
-      }
-      // Fetch availability data dynamically
-      fetchAvailability(station.number).then((availability) => {
-        const infoWindow = new google.maps.InfoWindow({
-          content: `
-                        <div>
-                            <h3>${station.name}</h3>
-                            <p><strong>Address:</strong> ${
-                              station.address || "N/A"
-                            }</p>
-                            <p><strong>Available Bikes:</strong> ${
-                              availability.available_bikes || "N/A"
-                            }</p>
-                            <p><strong>Free Stands:</strong> ${
-                              availability.available_bike_stands || "N/A"
-                            }</p>
-                        </div>
-                    `,
-        });
-        infoWindow.open(map, marker);
-        // Update the current info window
-        currentInfoWindow = infoWindow;
-      });
+      // Zoom in on the marker
+      centerMapOnStation(station);
+
+      // Update the dropdown menu with the selected station
+      document.getElementById("stationSelect").value = station.number;
+      showStationInfo(station);
     });
 
-    markers.push(marker); // Store the marker for later reference
+    markers.push(marker); // Store marker
   });
 }
 
 // Fetch availability data for a specific station
 function fetchAvailability(station_id) {
-  return fetch(`/available/${station_id}`)
+  const apiKey = "49e68d2d5153f2954850d6d9fe80295cbe9c62d2";
+  const apiUrl = `https://api.jcdecaux.com/vls/v1/stations/${station_id}?contract=dublin&apiKey=${apiKey}`;
+
+  return fetch(apiUrl)
     .then((response) => response.json())
     .then((data) => {
-      console.log("Fetched availability data:", data); // Debugging
-      if (data.available.length > 0) {
-        return data.available[0]; // Return the first availability record
-      } else {
-        return { available_bikes: "N/A", available_bike_stands: "N/A" };
-      }
+      console.log("Fetched live availability data:", data); // Debugging
+      return {
+        available_bikes: data.available_bikes || "N/A",
+        available_bike_stands: data.available_bike_stands || "N/A",
+      };
     })
     .catch((error) => {
-      console.error("Error fetching availability:", error);
+      console.error("Error fetching live availability:", error);
       return { available_bikes: "N/A", available_bike_stands: "N/A" };
     });
 }
 
-// Load stations when the page loads
-window.onload = loadStations;
+// Fetch and display weather data
+function fetchWeather() {
+  const apiKey = "6662905812925bbd641b91d8fe237874";
+  const city = 'Dublin';
+  const apiUrl = `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${apiKey}&units=metric`;
+
+  fetch(apiUrl)
+    .then((response) => response.json())
+    .then((data) => {
+      console.log("Fetched weather data:", data); // Debugging
+      displayWeather(data);
+    })
+    .catch((error) => console.error("Error fetching weather:", error));
+}
+
+// Display weather data in the weather overlay
+function displayWeather(weather) {
+  const weatherDiv = document.getElementById("weather");
+  const temperature = weather.main.temp.toFixed(1); // Round to 1 decimal place
+  const description = weather.weather[0].description;
+  const icon = weather.weather[0].icon;
+
+  weatherDiv.innerHTML = `
+    <div class="weather-card">
+      <img src="https://openweathermap.org/img/wn/${icon}@2x.png" alt="${description}">
+      <p>${temperature}°C, ${description}</p>
+    </div>
+  `;
+}
+
+// Load weather and stations when the page loads
+window.onload = () => {
+  loadStations();
+  fetchWeather();
+};

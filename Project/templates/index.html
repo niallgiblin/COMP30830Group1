@@ -4,47 +4,37 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dublin Bike Map</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css')}}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <script src="{{ url_for('static', filename='script.js') }}"></script>
-
 </head>
 <body>
-
     <header>
         <h1>Dublin Bikes - Live Map</h1>
     </header>
 
-    <!--- TESTING TO SHOW STATION DETAILS -->
-          <!-- Dropdown for selecting stations -->
-          <label for="stationSelect">Choose a station:</label>
-          <select id="stationSelect">
-              <option value="">Select a station</option>
-          </select>
-      
-          <!-- Display station details -->
-          <div id="stationInfo">
-              <h3>Station Details</h3>
-              <p><b>Name:</b> <span id="stationName">N/A</span></p>
-              <p><b>Available Bikes:</b> <span id="availableBikes">N/A</span></p>
-              <p><b>Free Stands:</b> <span id="freeStands">N/A</span></p>
-              <p><b>Status:</b> <span id="stationStatus">N/A</span></p>
-          </div>
-    
-    
-
-    <!-- Map div-->
-    <div id="map"></div>
-    <!-- To display Google Map -->
-    <script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&callback=initMap&loading=async" async defer></script>
-    <!-- Weather div -->
+    <!-- Weather overlay -->
     <div id="weather"></div>
 
-    <!-- Station div -->
-    <div id="station"></div>
+    <!-- Dropdown and station details -->
+    <div id="controls">
+        <!-- Dropdown for selecting stations -->
+        <label for="stationSelect">Choose a station:</label>
+        <select id="stationSelect">
+            <option value="">Select a station</option>
+        </select>
 
-    <!-- Chart div -->
-    <div id="chart"></div>
-    
+        <!-- Display station details (hidden by default) -->
+        <div id="stationInfo" style="display: none;">
+            <h3>Station Details</h3>
+            <p><b>Name:</b> <span id="stationName">N/A</span></p>
+            <p><b>Available Bikes:</b> <span id="availableBikes">N/A</span></p>
+            <p><b>Free Stands:</b> <span id="freeStands">N/A</span></p>
+            <p><b>Status:</b> <span id="stationStatus">N/A</span></p>
+        </div>
+    </div>
 
+    <!-- Map div -->
+    <div id="map"></div>
+    <script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&callback=initMap&loading=async" async defer></script>
 </body>
 </html>
