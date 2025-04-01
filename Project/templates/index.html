@@ -12,16 +12,21 @@
         <h1>Dublin Bikes - Live Map</h1>
     </header>
 
-    <!-- Weather overlay -->
-    <div id="weather"></div>
-
     <!-- Dropdown and station details -->
     <div id="controls">
+            <!-- Weather overlay -->
+        <div id="weather"></div>
         <!-- Dropdown for selecting stations -->
-        <label for="stationSelect">Choose a station:</label>
+        <label for="stationSelect">Find a station:</label>
+                <div class="search-container">
+            <input type="text" id="stationSearch" placeholder="Search stations...">
+        </div>
         <select id="stationSelect">
             <option value="">Select a station</option>
         </select>
+
+            <div class="station-selector">
+    </div>
 
         <!-- Display station details (hidden by default) -->
         <div id="stationInfo" style="display: none;">

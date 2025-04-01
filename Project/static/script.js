@@ -10,6 +10,7 @@ function loadStations() {
       console.log("Fetched station data:", data); // Debugging
       stationData = data.stations; // Store globally
       populateDropdown(data.stations);
+      setupStationSearch(data.stations);
       addMarkersToMap(data.stations); // Add markers to the map
     })
     .catch((error) => console.error("Error loading stations:", error));
@@ -17,9 +18,15 @@ function loadStations() {
 
 // Populate the dropdown menu
 function populateDropdown(stations) {
+  const uniqueStations = [
+    ...new Map(stations.map((station) => [station.number, station])).values(),
+  ];
+  const sortedStations = uniqueStations.sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
   let dropdown = document.getElementById("stationSelect");
   dropdown.innerHTML = "<option value=''>Select a station</option>"; // Reset dropdown
-  stations.forEach((station) => {
+  sortedStations.forEach((station) => {
     let option = document.createElement("option");
     option.value = station.number;
     option.textContent = station.name;
@@ -60,7 +67,55 @@ function centerMapOnStation(station) {
     lng: parseFloat(station.position_lng),
   };
   map.setCenter(stationLocation);
-  map.setZoom(16);
+  map.setZoom(19);
+}
+
+// Add search functionality
+function setupStationSearch(stations) {
+  const searchInput = document.getElementById("stationSearch");
+  const dropdown = document.getElementById("stationSelect");
+  
+  searchInput.addEventListener("input", function() {
+    const searchTerm = this.value.toLowerCase();
+    const options = dropdown.options;
+    
+    // First option is "Select a station"
+    for (let i = 1; i < options.length; i++) {
+      const stationName = options[i].textContent.toLowerCase();
+      options[i].style.display = stationName.includes(searchTerm) ? "" : "none";
+    }
+    
+    // If dropdown is closed, open it when typing
+    if (searchTerm.length > 0 && !dropdown.multiple) {
+      dropdown.size = Math.min(10, options.length); // Show up to 10 options
+      dropdown.style.overflowY = "auto";
+    } else {
+      dropdown.size = 1;
+      dropdown.style.overflowY = "";
+    }
+  });
+  
+  // Close the dropdown when clicking elsewhere
+  document.addEventListener("click", function(e) {
+    if (e.target !== searchInput && e.target !== dropdown) {
+      dropdown.size = 1;
+    }
+  });
+  
+  // Add keyboard navigation
+  searchInput.addEventListener("keydown", function(e) {
+    if (e.key === "Enter") {
+      // Find first visible option and select it
+      const options = dropdown.options;
+      for (let i = 1; i < options.length; i++) {
+        if (options[i].style.display !== "none") {
+          dropdown.value = options[i].value;
+          dropdown.dispatchEvent(new Event("change"));
+          break;
+        }
+      }
+    }
+  });
 }
 
 // Initialize and add the map
