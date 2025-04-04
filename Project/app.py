@@ -1,79 +1,153 @@
-from flask import Flask, g, render_template, jsonify
-import json
+from flask import Flask, g, render_template, jsonify, current_app
 from sqlalchemy import create_engine, text
+import os
+from dotenv import load_dotenv
+import requests
+import datetime 
 
-app = Flask(__name__, static_url_path='/static') # tell Flask where are the static files (html, js, images, css, etc.)
-app.config['GOOGLE_MAPS_API_KEY'] = 'AIzaSyByv0VXneSKOmPsEfijAVFabcoRf7Okdrk'
+# Load environment variables from .env file
+load_dotenv()
 
-@app.route('/')
-def index():
-    return render_template('index.html', google_maps_api_key=app.config['GOOGLE_MAPS_API_KEY'])
+# Create Flask app
+app = Flask(__name__, static_url_path='/static')
 
-'''
-We will connect to the local database, access its content through flask, and 
-then show the content in a specific page in the form of a json file
-'''
-## LEONIE taken form create_db.py
-USER = "root"
-PASSWORD = "River2022!"
-PORT = "3306"
-DB = "local_databasejcdecaux"
-URI = "127.0.0.1"
+# Configuration from .env variables
+app.config['GOOGLE_MAPS_API_KEY'] = os.environ.get('GOOGLE_MAPS_API_KEY')
+app.config['DB_USER'] = os.environ.get('DB_USER')
+app.config['DB_PASSWORD'] = os.environ.get('DB_PASSWORD')
+app.config['DB_PORT'] = os.environ.get('DB_PORT', '3306')
+app.config['DB_NAME'] = os.environ.get('DB_NAME')
+app.config['DB_HOST'] = os.environ.get('DB_HOST', '127.0.0.1')
 
-# Connect to the database and create the engine variable
+# Connect to the database
 def connect_to_db():
-    connection_string = "mysql+pymysql://{}:{}@{}:{}/{}".format(USER, PASSWORD, URI, PORT, DB)
-    engine = create_engine(connection_string, echo = True)
-    
-    return engine
+    try:
+        connection_string = f"mysql+pymysql://{app.config['DB_USER']}:{app.config['DB_PASSWORD']}@{app.config['DB_HOST']}:{app.config['DB_PORT']}/{app.config['DB_NAME']}"
+        engine = create_engine(connection_string, pool_recycle=3600)
+        
+        # Test the connection
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+            
+        return engine
+    except Exception as e:
+        print(f"Database connection failed: {str(e)}")
+        return None
 
-# Create the engine variable and store it in the global Flask variable 'g'
+# Get database connection from Flask g object
 def get_db():
     db_engine = getattr(g, '_database', None)
     if db_engine is None:
         db_engine = g._database = connect_to_db()
     return db_engine
 
-# Show all stations in json
+# Close database connection when request ends
+@app.teardown_appcontext
+def close_connection(exception):
+    db = getattr(g, '_database', None)
+    if db is not None:
+        db.dispose()
+
+# Home page route
+@app.route('/')
+def index():
+    return render_template('index.html', google_maps_api_key=app.config['GOOGLE_MAPS_API_KEY'])
+
+# API route to get all stations
 @app.route('/stations')
 def get_stations():
-    engine = get_db()
-    
-    stations = []
-    with engine.connect() as conn: #Added this part because lecture's code doesn't work: engine doesn't have "execute" function
-        query = text("""
-                SELECT * FROM station""")
-        rows = conn.execute(query)
-
-        #rows = engine.execute("SELECT * from station;") # here station is the name of your table in the database
-    
-        for row in rows.mappings(): # Added the mappings() function to be able to convert to dictionary
-            stations.append(dict(row))
-    
-    return jsonify(stations=stations)
-
-# Let us retrieve information about a specific station
-@app.route("/available/<int:station_id>")
-def get_stations_one(station_id):
-    engine = get_db()
-    data = []
-
     try:
+        engine = get_db()
         with engine.connect() as conn:
-            # Use a parameterized query
-            query = text("SELECT available_bikes, available_bike_stands FROM availability WHERE number = :station_id;")
-            rows = conn.execute(query, {"station_id": station_id})  # Pass parameters as a dictionary
-
-            for row in rows.mappings():
-                data.append(dict(row))
-        
-        return jsonify(available=data)
+            result = conn.execute(text("""
+                SELECT 
+                    number,
+                    name,
+                    address,
+                    position_lat, 
+                    position_lng,
+                    status
+                FROM station
+            """))
+            
+            stations = [dict(row) for row in result.mappings()]
+            return jsonify({"stations": stations})
+            
     except Exception as e:
-        return jsonify(error=str(e)), 500
+        print(f"Error: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+    
+# API route to get availability for a specific station
+@app.route("/available/<int:station_id>")
+def get_station_availability(station_id):
+    try:
+        engine = get_db()
+        with engine.connect() as conn:
+            # Check if station exists first
+            station_exists = conn.execute(
+                text("SELECT 1 FROM station WHERE number = :station_id"),
+                {"station_id": station_id}
+            ).scalar()
+            
+            if not station_exists:
+                return jsonify({
+                    "error": "Station not found",
+                    "available_bikes": 0,
+                    "available_bike_stands": 0
+                }), 404
 
-@app.route('/')
-def root():
-    return 'Navigate http://localhost:5500/'
+            # Get latest availability
+            result = conn.execute(
+                text("""
+                    SELECT 
+                        COALESCE(available_bikes, 0) as available_bikes,
+                        COALESCE(available_bike_stands, 0) as available_bike_stands,
+                        COALESCE(last_update, NOW()) as last_update
+                    FROM availability 
+                    WHERE number = :station_id
+                    ORDER BY last_update DESC 
+                    LIMIT 1
+                """),
+                {"station_id": station_id}
+            ).fetchone()
+            
+            return jsonify({
+                "available_bikes": result.available_bikes,
+                "available_bike_stands": result.available_bike_stands,
+                "last_updated": result.last_update.isoformat() if result.last_update else datetime.now().isoformat()
+            })
+            
+    except Exception as e:
+        print(f"Error fetching availability for station {station_id}: {str(e)}")
+        return jsonify({
+            "error": "Database error",
+            "available_bikes": 0,
+            "available_bike_stands": 0,
+            "last_updated": datetime.now().isoformat()
+        }), 200  # Note: Returning 200 with zeros to keep frontend working
+    
+@app.route('/api/weather')
+def get_weather():
+    try:
+        # Replace with your actual OpenWeatherMap API key
+        api_key = os.environ.get('OPENWEATHER_API_KEY')
+        response = requests.get(
+            f"https://api.openweathermap.org/data/2.5/weather?q=Dublin&appid={api_key}&units=metric"
+        )
+        response.raise_for_status()
+        return jsonify(response.json())
+    except Exception as e:
+        print(f"Weather API error: {str(e)}")
+        return jsonify({
+            "error": "Weather data unavailable",
+            "timestamp": datetime.now().isoformat()
+        }), 200
 
+# Run the app
 if __name__ == '__main__':
+    # Set up logging
+    import logging
+    logging.basicConfig(level=logging.INFO)
+    
+    # Run the app
     app.run(debug=True, port=5500)
