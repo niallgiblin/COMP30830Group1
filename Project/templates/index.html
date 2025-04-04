@@ -4,31 +4,33 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dublin Bike Map</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='images/favicon.ico') }}" type="image/x-icon">
+    <meta name="description" content="Live Dublin Bikes station information and availability">
 </head>
 <body>
-    <header>
-        <h1>Dublin Bikes - Live Map</h1>
-    </header>
+    <!-- Weather widget -->
+    <div id="weather"></div>
 
-    <!-- Dropdown and station details -->
+    <!-- Controls panel -->
     <div id="controls">
-            <!-- Weather overlay -->
-        <div id="weather"></div>
-        <!-- Dropdown for selecting stations -->
-        <label for="stationSelect">Find a station:</label>
-                <div class="search-container">
-            <input type="text" id="stationSearch" placeholder="Search stations...">
+        <button id="resetBtn">Reset Map</button>
+        <button id="findNearestBikeBtn" class="map-button">
+            🚲 Find Nearest Available Bike
+        </button>
+        
+        <!-- Station search and selection -->
+        <div class="station-search">
+            <label for="stationSearch">Find a station:</label>
+            <div class="search-container">
+                <input type="text" id="stationSearch" placeholder="Search stations...">
+            </div>
+            <select id="stationSelect">
+                <option value="">Select a station</option>
+            </select>
         </div>
-        <select id="stationSelect">
-            <option value="">Select a station</option>
-        </select>
 
-            <div class="station-selector">
-    </div>
-
-        <!-- Display station details (hidden by default) -->
+        <!-- Station details panel -->
         <div id="stationInfo" style="display: none;">
             <h3>Station Details</h3>
             <p><b>Name:</b> <span id="stationName">N/A</span></p>
@@ -38,8 +40,24 @@
         </div>
     </div>
 
-    <!-- Map div -->
+    <!-- Directions panel -->
+    <div id="directions-panel" style="display: none;">
+  <div class="directions-header">
+    <h3>Directions to Closest Available Bike</h3>
+    <button id="close-directions" class="close-btn">×</button>
+  </div>
+  <div id="directions-steps"></div> <!-- This is where steps appear -->
+</div>
+
+    <!-- Map container -->
     <div id="map"></div>
-    <script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&callback=initMap&loading=async" async defer></script>
-</body>
-</html>
+
+<!-- Scripts -->
+<script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&callback=initMap&loading=async" async defer></script>
+<script src="{{ url_for('static', filename='js/utils.js') }}"></script>
+<script src="{{ url_for('static', filename='js/stations.js') }}"></script>
+<script src="{{ url_for('static', filename='js/weather.js') }}"></script>
+<script src="{{ url_for('static', filename='js/map.js') }}"></script>
+<script src="{{ url_for('static', filename='js/directions.js') }}"></script>
+<script src="{{ url_for('static', filename='js/ui.js') }}"></script>
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
