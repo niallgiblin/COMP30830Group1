@@ -151,14 +151,40 @@ def get_weather():
 
 
 ### PREDICTION
-def fetch_openweather_forecast(date):
+def fetch_openweather_forecast(datetime):
     # Stub: Replace with code to fetch weather forecast from OpenWeather
-    return {
-        "temperature": 20,
-        "humidity": 60,
-        "pressure": 1000,
-    }
+    api_key = os.environ.get('OPENWEATHER_API_KEY')
+    url = (f"https://api.openweathermap.org/data/2.5/forecast?q=Dublin&appid={api_key}&units=metric"
+        )
+    response = requests.get(url)
+    response.raise_for_status()
+    data = response.json()
 
+    try:
+        target_dt = int(datetime.replace(tzinfo=timezone.utc).timestamp())
+    except ValueError as ve:
+        print(f"Date/time parsing error: {ve}")
+        return None
+
+    # Find the closest forecast time
+    closest = None
+    smallest_diff = float("inf")
+
+    for item in data.get("list", []):
+        forecast_time = item["dt"]  # already a UNIX timestamp
+        diff = abs(forecast_time - target_dt)
+        if diff < smallest_diff:
+            smallest_diff = diff
+            closest = item
+
+    if closest:
+        return {
+            "temperature": closest["main"]["temp"],
+            "humidity": closest["main"]["humidity"],
+            "pressure": closest["main"]["pressure"],
+        }
+
+    return None
 
 # Define a route for predictions
 @app.route("/predict", methods=["GET"])
@@ -171,13 +197,14 @@ def predict():
         if not date or not time or not station_id:
             return jsonify({"error": "Missing date, time, or station_id parameter"}), 400
 
-        openweather_data = fetch_openweather_forecast(date)
+     
 
         # Combine date and time into a single datetime object
         dt = datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M:%S")
         hour = dt.hour
         day_of_week = dt.weekday()
 
+        openweather_data = fetch_openweather_forecast(dt)
         # Combine data into input features
         input_features = [
             int(station_id),
