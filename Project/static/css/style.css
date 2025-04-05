@@ -249,3 +249,23 @@ body, html {
     right: 10px;
   }
 }
+
+#prediction {
+  position: relative;
+  z-index: 10;
+  background: white; 
+  padding: 1rem;
+  position: fixed;
+  bottom: 50px;
+
+}
+
+
+#result {
+  position: relative;
+  z-index: 90;
+  background: white; 
+  padding: 1rem;
+  position: fixed;
+  bottom: 0px;
+}

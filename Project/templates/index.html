@@ -49,15 +49,37 @@
   <div id="directions-steps"></div> <!-- This is where steps appear -->
 </div>
 
+    <!-- Prediction-->  
+<div id ="prediction">
+    <h1>Bike Availability Prediction</h1>
+
+    <label for="date">Select Date:</label>
+    <input type="date" id="date" required>
+
+    <label for="time">Select Time:</label>
+    <input type="time" id="time" required>
+
+    <label for="station_id">Select Station:</label>
+    <input type="number" id="station_id" required>
+
+    <button onclick="predict()">Predict</button> </div>
+
+<div id="result"></div>
+
+
     <!-- Map container -->
     <div id="map"></div>
 
+
+
 <!-- Scripts -->
+<script src="{{ url_for('static', filename='js/map.js') }}"></script>
 <script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&callback=initMap&loading=async" async defer></script>
 <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
 <script src="{{ url_for('static', filename='js/stations.js') }}"></script>
 <script src="{{ url_for('static', filename='js/weather.js') }}"></script>
-<script src="{{ url_for('static', filename='js/map.js') }}"></script>
 <script src="{{ url_for('static', filename='js/directions.js') }}"></script>
 <script src="{{ url_for('static', filename='js/ui.js') }}"></script>
 <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+<script src="{{ url_for('static', filename='js/predict.js') }}"></script>
+</body>
