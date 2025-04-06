@@ -196,8 +196,8 @@ def predict():
         station_id = request.args.get("station_id")  #station_id as an input parameter
         if not date or not time or not station_id:
             return jsonify({"error": "Missing date, time, or station_id parameter"}), 400
-
-     
+        if int(station_id) > 117:
+            return jsonify({"error": f"Invalid station_id: {station_id}"}), 400
 
         # Combine date and time into a single datetime object
         dt = datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M:%S")
@@ -205,6 +205,8 @@ def predict():
         day_of_week = dt.weekday()
 
         openweather_data = fetch_openweather_forecast(dt)
+        print("Weather data:", openweather_data) ##PRINTING to check
+
         # Combine data into input features
         input_features = [
             int(station_id),
@@ -214,10 +216,15 @@ def predict():
             hour,
             day_of_week,
         ]
-        input_array = np.array(input_features).reshape(1, -1)
+        import pandas as pd
 
+        columns = ['station_id', 'temperature', 'humidity', 'pressure', 'hour', 'day_of_week'] #Convert to df to match with model
+        input_df = pd.DataFrame([input_features], columns=columns)
+
+        print("Input features:", input_features) #PRINTING to check
+        prediction = model.predict(input_df)
         # Make a prediction
-        prediction = model.predict(input_array)
+        prediction = model.predict(input_df)
         
         return jsonify({"predicted_available_bikes": prediction[0]})
 
