@@ -27,7 +27,7 @@ function predict() {
         .then(data => {
             console.log("Prediction response:", data);
             if (data.predicted_available_bikes !== undefined) {
-                resultDiv.innerHTML = `Predicted Available Bikes: ${data.predicted_available_bikes}`;
+                resultDiv.innerHTML = `Predicted Available Bikes: ${Math.round(data.predicted_available_bikes)}`;
             } else {
                 resultDiv.innerHTML = `Error: ${data.error || "Something went wrong"}`;
             }
