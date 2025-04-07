@@ -9,55 +9,107 @@
     <meta name="description" content="Live Dublin Bikes station information and availability">
 </head>
 <body>
+
+<!-- SIDE BAR-->
+<div class="sidebar">
+    <!-- Banner-->
+        <div class = "banner"></div>
+    <!-- Navbar-->    
+        <div class = "navbar">
+        <button onclick="openModal('about')">About Us</button>
+        <button onclick="openModal('station')">Find a Station</button>
+        <button onclick="openModal('prediction')">Bike Availability Prediction</button> </div>
+    <div class="modal-container">
+    <!-- Modal 1: About us-->
+      <div id="about" class="modal">
+        <span class="modal-close" onclick="closeModal('about')">&times;</span>
+        <p>We are Dublinbikes here you can blabla bla cycling in Dublin offers a delightful blend of urban exploration and scenic beauty. 
+            The city's compact nature, coupled with over 190 km of cycle paths, makes it ideal for both novice and experienced cyclists. 
+            Popular routes include the Grand Canal Greenway, providing a peaceful ride along the water, and the Royal Canal Greenway, which offers a journey through history. 
+            hether you're commuting or exploring, Dublin's cycling infrastructure caters to al</p>
+      </div>
+    
+    <!-- Modal 2: Find a station-->
+      <div id="station" class="modal">
+        <span class="modal-close" onclick="closeModal('station')">&times;</span>
+                
+                <!-- Station search and selection -->
+                <div class="station-search">
+                    <div class="search-container">
+                        <input type="text" id="stationSearch" placeholder="Search stations...">
+                    </div>
+                    <select id="stationSelect">
+                        <option value="">Select a station</option>
+                    </select>
+                </div>
+                <!-- Find nearest bike-->
+                    <span class="modal-close" onclick="closeModal('bike')">&times;</span>
+                    <button id="findNearestBikeBtn" class="map-button">
+                        🚲 Find Nearest Available Bike
+                    </button>
+
+                <!-- Station details panel -->
+                <div id="stationInfo" style="display: none;">
+                    <p><b>Name:</b> <span id="stationName">N/A</span></p>
+                    <p><b>Available Bikes:</b> <span id="availableBikes">N/A</span></p>
+                    <p><b>Free Stands:</b> <span id="freeStands">N/A</span></p>
+                    <p><b>Status:</b> <span id="stationStatus">N/A</span></p>
+                </div>
+            </div>
+      </div>
+
+      <!-- Modal 3: Find bikes prediction -->
+      <div id="prediction" class="modal">
+        <span class="modal-close" onclick="closeModal('prediction')">&times;</span>
+        <p>Prediction of how many bikes will be available on a date using machine-learning model based on live weather data</p>
+                <!-- Prediction-->  
+            <div id ="prediction-ml">
+                <div class = "select">
+                <label for="date">Select Date:</label>
+                <input type="date" id="date" required></div>
+                <div class = "select">
+                <label for="time">Select Time:</label>
+                <input type="time" id="time" required></div>
+                <div class = "select">
+                <label for="station_id">Select Station ID:</label>
+                <input type="number" id="station_id" required></div>
+                <button class="button" onclick="predict()">Predict</button> 
+                <div id="result"></div></div>
+      </div>
+      </div>
+
+    </div>
     <!-- Weather widget -->
     <div id="weather"></div>
 
-    <!-- Controls panel -->
-    <div id="controls">
-        <button id="resetBtn">Reset Map</button>
-        <button id="findNearestBikeBtn" class="map-button">
-            🚲 Find Nearest Available Bike
-        </button>
-        
-        <!-- Station search and selection -->
-        <div class="station-search">
-            <label for="stationSearch">Find a station:</label>
-            <div class="search-container">
-                <input type="text" id="stationSearch" placeholder="Search stations...">
-            </div>
-            <select id="stationSelect">
-                <option value="">Select a station</option>
-            </select>
-        </div>
-
-        <!-- Station details panel -->
-        <div id="stationInfo" style="display: none;">
-            <h3>Station Details</h3>
-            <p><b>Name:</b> <span id="stationName">N/A</span></p>
-            <p><b>Available Bikes:</b> <span id="availableBikes">N/A</span></p>
-            <p><b>Free Stands:</b> <span id="freeStands">N/A</span></p>
-            <p><b>Status:</b> <span id="stationStatus">N/A</span></p>
-        </div>
-    </div>
 
     <!-- Directions panel -->
     <div id="directions-panel" style="display: none;">
-  <div class="directions-header">
-    <h3>Directions to Closest Available Bike</h3>
-    <button id="close-directions" class="close-btn">×</button>
-  </div>
-  <div id="directions-steps"></div> <!-- This is where steps appear -->
-</div>
+    <div class="directions-header">
+        <h3>Directions to Closest Available Bike</h3>
+        <button id="close-directions" class="close-btn">×</button>
+    </div>
+    <div id="directions-steps"></div> <!-- This is where steps appear -->
+    </div>
 
-    <!-- Map container -->
+<!-- Controls div -->
+    <div id = "controls">
+    <button class="button" id="resetBtn">Reset Map</button> </div>
+
+<!-- Map container -->
     <div id="map"></div>
 
+
+
 <!-- Scripts -->
+<script src="{{ url_for('static', filename='js/map.js') }}"></script>
 <script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&callback=initMap&loading=async" async defer></script>
+<script src="{{ url_for('static', filename='js/navigationbar.js') }}"></script>
 <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
 <script src="{{ url_for('static', filename='js/stations.js') }}"></script>
 <script src="{{ url_for('static', filename='js/weather.js') }}"></script>
-<script src="{{ url_for('static', filename='js/map.js') }}"></script>
 <script src="{{ url_for('static', filename='js/directions.js') }}"></script>
 <script src="{{ url_for('static', filename='js/ui.js') }}"></script>
 <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+<script src="{{ url_for('static', filename='js/predict.js') }}"></script>
+</body>

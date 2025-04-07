@@ -139,6 +139,10 @@ function addMarkersToMap(stations) {
         console.warn("UIModule is not loaded!");
       }
 
+      if (typeof openModal === 'function') {
+        openModal('station'); // Show the "Find station modal" when clicked on station marker
+      }
+
       if (onMarkerClickCallback) onMarkerClickCallback(station);
     });
 
