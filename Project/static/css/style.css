@@ -16,10 +16,6 @@ label {
   font-size: 14px;
   color: #333333;          
 }
-p {
-  text-align: justify;
-  padding: 10px 0;
-}
 
 /* Map container */
 #map {
@@ -277,9 +273,7 @@ p {
   }
 }
 
-
-
-
+/* Modal 3: Prediction */
 #result {
   position: relative;
   z-index: 90;
@@ -344,14 +338,12 @@ p {
   color: white;
 }
 
-/* Optional: active style */
 .navbar button.active {
   background-color: #ddd;
   font-weight: bold;
 }
 
-
-.moda-container {
+.modal-container {
   position: relative;
   margin-top: 10px; 
   padding: 10px;
@@ -393,4 +385,10 @@ p {
   color: #333333;    
   line-height: 1.5;
   margin-top: 20px;
+  text-align: justify;
+  padding: 10px 0;
+}
+
+#stationInfo p {
+  padding: 0px;
 }
