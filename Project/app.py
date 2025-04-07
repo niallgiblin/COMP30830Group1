@@ -187,6 +187,15 @@ def fetch_openweather_forecast(datetime):
     return None
 
 # Define a route for predictions
+def hour_to_bin(hour):
+    if 6 <= hour < 10:
+        return "morning_rush"
+    elif 10 <= hour < 16:
+        return "midday"
+    elif 16 <= hour < 20:
+        return "evening_rush"
+    else:
+        return "night"
 @app.route("/predict", methods=["GET"])
 def predict():
     try:
@@ -203,6 +212,7 @@ def predict():
         dt = datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M:%S")
         hour = dt.hour
         day_of_week = dt.weekday()
+        station_hour = f"{station_id}_{hour_to_bin(hour)}"
 
         openweather_data = fetch_openweather_forecast(dt)
         print("Weather data:", openweather_data) ##PRINTING to check
@@ -214,12 +224,14 @@ def predict():
             openweather_data["humidity"],
             openweather_data["pressure"],
             hour,
+            station_hour,
             day_of_week,
         ]
         import pandas as pd
 
-        columns = ['station_id', 'temperature', 'humidity', 'pressure', 'hour', 'day_of_week'] #Convert to df to match with model
+        columns = ['station_id', 'temperature', 'humidity', 'pressure', 'hour', 'station_hour' ,'day_of_week'] #Convert to df to match with model
         input_df = pd.DataFrame([input_features], columns=columns)
+
 
         print("Input features:", input_features) #PRINTING to check
         prediction = model.predict(input_df)
