@@ -6,6 +6,7 @@ import requests
 from datetime import datetime, timezone
 import pickle
 import numpy as np
+import sklearn
 
 with open("project/data/bike_availability_model.pkl", "rb") as file:
     model = pickle.load(file)
