@@ -1,9 +1,15 @@
-from flask import Flask, g, render_template, jsonify, current_app
+from flask import Flask, g, render_template, jsonify, current_app, request
 from sqlalchemy import create_engine, text
 import os
 from dotenv import load_dotenv
 import requests
-import datetime 
+from datetime import datetime, timezone
+import pickle
+import numpy as np
+
+with open("project/data/bike_availability_model.pkl", "rb") as file:
+    model = pickle.load(file)
+
 
 # Load environment variables from .env file
 load_dotenv()
@@ -142,6 +148,89 @@ def get_weather():
             "error": "Weather data unavailable",
             "timestamp": datetime.now().isoformat()
         }), 200
+
+
+### PREDICTION
+def fetch_openweather_forecast(datetime):
+    # Stub: Replace with code to fetch weather forecast from OpenWeather
+    api_key = os.environ.get('OPENWEATHER_API_KEY')
+    url = (f"https://api.openweathermap.org/data/2.5/forecast?q=Dublin&appid={api_key}&units=metric"
+        )
+    response = requests.get(url)
+    response.raise_for_status()
+    data = response.json()
+
+    try:
+        target_dt = int(datetime.replace(tzinfo=timezone.utc).timestamp())
+    except ValueError as ve:
+        print(f"Date/time parsing error: {ve}")
+        return None
+
+    # Find the closest forecast time
+    closest = None
+    smallest_diff = float("inf")
+
+    for item in data.get("list", []):
+        forecast_time = item["dt"]  # already a UNIX timestamp
+        diff = abs(forecast_time - target_dt)
+        if diff < smallest_diff:
+            smallest_diff = diff
+            closest = item
+
+    if closest:
+        return {
+            "temperature": closest["main"]["temp"],
+            "humidity": closest["main"]["humidity"],
+            "pressure": closest["main"]["pressure"],
+        }
+
+    return None
+
+# Define a route for predictions
+@app.route("/predict", methods=["GET"])
+def predict():
+    try:
+        # Get date and time from request
+        date = request.args.get("date")
+        time = request.args.get("time")
+        station_id = request.args.get("station_id")  #station_id as an input parameter
+        if not date or not time or not station_id:
+            return jsonify({"error": "Missing date, time, or station_id parameter"}), 400
+        if int(station_id) > 117:
+            return jsonify({"error": f"Invalid station_id: {station_id}"}), 400
+
+        # Combine date and time into a single datetime object
+        dt = datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M:%S")
+        hour = dt.hour
+        day_of_week = dt.weekday()
+
+        openweather_data = fetch_openweather_forecast(dt)
+        print("Weather data:", openweather_data) ##PRINTING to check
+
+        # Combine data into input features
+        input_features = [
+            int(station_id),
+            openweather_data["temperature"],
+            openweather_data["humidity"],
+            openweather_data["pressure"],
+            hour,
+            day_of_week,
+        ]
+        import pandas as pd
+
+        columns = ['station_id', 'temperature', 'humidity', 'pressure', 'hour', 'day_of_week'] #Convert to df to match with model
+        input_df = pd.DataFrame([input_features], columns=columns)
+
+        print("Input features:", input_features) #PRINTING to check
+        prediction = model.predict(input_df)
+        # Make a prediction
+        prediction = model.predict(input_df)
+        
+        return jsonify({"predicted_available_bikes": prediction[0]})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 # Run the app
 if __name__ == '__main__':
