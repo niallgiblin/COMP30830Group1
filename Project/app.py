@@ -187,23 +187,15 @@ def fetch_openweather_forecast(datetime):
 
     return None
 
+
 # Define a route for predictions
-def hour_to_bin(hour):
-    if 6 <= hour < 10:
-        return "morning_rush"
-    elif 10 <= hour < 16:
-        return "midday"
-    elif 16 <= hour < 20:
-        return "evening_rush"
-    else:
-        return "night"
 @app.route("/predict", methods=["GET"])
 def predict():
     try:
         # Get date and time from request
         date = request.args.get("date")
         time = request.args.get("time")
-        station_id = request.args.get("station_id")  #station_id as an input parameter
+        station_id = request.args.get("station_id") 
         if not date or not time or not station_id:
             return jsonify({"error": "Missing date, time, or station_id parameter"}), 400
         if int(station_id) > 117:
@@ -213,7 +205,7 @@ def predict():
         dt = datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M:%S")
         hour = dt.hour
         day_of_week = dt.weekday()
-        station_hour = f"{station_id}_{hour_to_bin(hour)}"
+        station_hour = f"{str(station_id)}_{hour}"
 
         openweather_data = fetch_openweather_forecast(dt)
         print("Weather data:", openweather_data) ##PRINTING to check
