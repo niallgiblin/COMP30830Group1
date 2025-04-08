@@ -71,90 +71,97 @@ def index():
 # API route to get all stations
 @app.route('/stations')
 def get_stations():
+    """Get all stations from JCDecaux API"""
     try:
-        engine = get_db()
-        with engine.connect() as conn:
-            result = conn.execute(text("""
-                SELECT 
-                    number,
-                    name,
-                    address,
-                    position_lat, 
-                    position_lng,
-                    status
-                FROM station
-            """))
-            
-            stations = [dict(row) for row in result.mappings()]
-            return jsonify({"stations": stations})
+        api_key = os.environ.get('JCDECAUX_API_KEY')
+        contract = "dublin"
+        url = f"https://api.jcdecaux.com/vls/v1/stations?contract={contract}&apiKey={api_key}"
+        
+        response = requests.get(url)
+        response.raise_for_status()
+        stations_data = response.json()
+        
+        # Transform the data to match our expected format
+        stations = [{
+            'number': station['number'],
+            'name': station['name'],
+            'address': station['address'],
+            'position_lat': station['position']['lat'],
+            'position_lng': station['position']['lng'],
+            'status': station['status'],
+            'available_bikes': station['available_bikes'],
+            'available_bike_stands': station['available_bike_stands'],
+            'last_update': datetime.fromtimestamp(station['last_update']/1000).isoformat()
+        } for station in stations_data]
+        
+        return jsonify({"stations": stations})
             
     except Exception as e:
-        print(f"Error: {str(e)}")
+        print(f"Error fetching stations from JCDecaux API: {str(e)}")
         return jsonify({"error": str(e)}), 500
     
 # API route to get availability for a specific station
 @app.route("/available/<int:station_id>")
 def get_station_availability(station_id):
     try:
-        engine = get_db()
-        with engine.connect() as conn:
-            # Check if station exists first
-            station_exists = conn.execute(
-                text("SELECT 1 FROM station WHERE number = :station_id"),
-                {"station_id": station_id}
-            ).scalar()
-            
-            if not station_exists:
-                return jsonify({
-                    "error": "Station not found",
-                    "available_bikes": 0,
-                    "available_bike_stands": 0
-                }), 404
-
-            # Get latest availability
-            result = conn.execute(
-                text("""
-                    SELECT 
-                        COALESCE(available_bikes, 0) as available_bikes,
-                        COALESCE(available_bike_stands, 0) as available_bike_stands,
-                        COALESCE(last_update, NOW()) as last_update
-                    FROM availability 
-                    WHERE number = :station_id
-                    ORDER BY last_update DESC 
-                    LIMIT 1
-                """),
-                {"station_id": station_id}
-            ).fetchone()
-            
-            return jsonify({
-                "available_bikes": result.available_bikes,
-                "available_bike_stands": result.available_bike_stands,
-                "last_updated": result.last_update.isoformat() if result.last_update else datetime.now().isoformat()
-            })
+        # Get live data from JCDecaux API
+        api_key = os.environ.get('JCDECAUX_API_KEY')
+        contract = "dublin"
+        url = f"https://api.jcdecaux.com/vls/v1/stations/{station_id}?contract={contract}&apiKey={api_key}"
+        
+        response = requests.get(url)
+        response.raise_for_status()
+        station_data = response.json()
+        
+        return jsonify({
+            "available_bikes": station_data['available_bikes'],
+            "available_bike_stands": station_data['available_bike_stands'],
+            "last_updated": datetime.fromtimestamp(station_data['last_update']/1000).isoformat()
+        })
             
     except Exception as e:
         print(f"Error fetching availability for station {station_id}: {str(e)}")
         return jsonify({
-            "error": "Database error",
+            "error": "API error",
             "available_bikes": 0,
             "available_bike_stands": 0,
             "last_updated": datetime.now().isoformat()
-        }), 200  # Note: Returning 200 with zeros to keep frontend working
-    
+        }), 200
+
 @app.route('/api/weather')
 def get_weather():
+    """Get current weather data with no caching"""
     try:
         api_key = os.environ.get('OPENWEATHER_API_KEY')
-        response = requests.get(
-            f"https://api.openweathermap.org/data/2.5/weather?q=Dublin&appid={api_key}&units=metric"
+        # Use coordinates for Dublin city center and more specific parameters
+        url = (
+            "https://api.openweathermap.org/data/2.5/weather?"
+            "lat=53.3498&lon=-6.2603&"  # Dublin coordinates
+            f"appid={api_key}&"
+            "units=metric&"
+            "lang=en"
         )
+        
+        # Add cache-busting timestamp
+        timestamp = int(datetime.now().timestamp())
+        url = f"{url}&_={timestamp}"
+        
+        response = requests.get(url, headers={
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+        })
         response.raise_for_status()
-        return jsonify(response.json())
+        
+        weather_data = response.json()
+        
+        # Log the response for debugging
+        print(f"Weather API response: {weather_data}")
+        
+        return jsonify(weather_data)
     except Exception as e:
         print(f"Weather API error: {str(e)}")
         return jsonify({
-            "error": "Weather data unavailable",
-            "timestamp": datetime.now().isoformat()
+            "error": "Weather data unavailable"
         }), 200
 
 
@@ -247,11 +254,31 @@ def predict():
 def get_station_history(station_id):
     """Get historical usage data for a station"""
     try:
-        # Filter data for the specific station
+        # Get live data from Dublin Bikes API
+        api_key = os.environ.get('JCDECAUX_API_KEY')
+        contract = "dublin"
+        url = f"https://api.jcdecaux.com/vls/v1/stations/{station_id}?contract={contract}&apiKey={api_key}"
+        
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+            current_data = response.json()
+            current_bikes = current_data.get('available_bikes', 0)
+            current_stands = current_data.get('available_bike_stands', 0)
+            current_time = datetime.fromtimestamp(current_data.get('last_update', 0)/1000)
+            last_update = current_time.strftime('%H:%M')
+        except Exception as e:
+            print(f"Error fetching live data: {str(e)}")
+            current_bikes = 0
+            current_stands = 0
+            current_time = datetime.now()
+            last_update = current_time.strftime('%H:%M')
+
+        # Filter historical data for the specific station (for pattern only)
         station_data = historical_data[historical_data['station_id'] == station_id]
         
         if station_data.empty:
-            # If no data for this station, return default pattern
+            # If no historical data for this station, return default pattern
             time_labels = ['05:00', '08:00', '11:00', '14:00', '17:00', '20:00', '23:00']
             usage_pattern = {
                 'labels': time_labels,
@@ -259,7 +286,7 @@ def get_station_history(station_id):
                 'available_stands': [15, 12, 8, 5, 10, 13, 16]
             }
         else:
-            # Calculate average bikes available by hour
+            # Calculate average bikes available by hour (for pattern)
             hourly_avg = station_data.groupby('hour')['num_bikes_available'].mean().reset_index()
             
             # Ensure we have data for all hours (0-23)
@@ -267,10 +294,12 @@ def get_station_history(station_id):
             hourly_avg = pd.merge(all_hours, hourly_avg, on='hour', how='left')
             hourly_avg['num_bikes_available'] = hourly_avg['num_bikes_available'].fillna(method='ffill').fillna(method='bfill')
             
-            # Get total capacity (max bikes + available stands)
-            total_capacity = station_data['num_bikes_available'].max() + 5  # Assuming 5 stands as default
+            # Get total capacity from live data or fallback to historical
+            total_capacity = current_bikes + current_stands
+            if total_capacity == 0:  # If live data failed
+                total_capacity = station_data['num_bikes_available'].max() + 5
             
-            # Select specific hours for display (every 3 hours from 5am to midnight)
+            # Select specific hours for display (every 3 hours from 5am to 11pm)
             selected_hours = [5, 8, 11, 14, 17, 20, 23]
             time_labels = [f"{hour:02d}:00" for hour in selected_hours]
             
@@ -284,8 +313,18 @@ def get_station_history(station_id):
                 'available_stands': available_stands
             }
         
+        # Add live data point to the patterns only if current time is between 05:00 and 23:00
+        current_hour = current_time.hour
+        current_minute = current_time.minute
+        if 5 <= current_hour < 23 or (current_hour == 23 and current_minute == 0):
+            usage_pattern['labels'].append(last_update)
+            usage_pattern['available_bikes'].append(current_bikes)
+            usage_pattern['available_stands'].append(current_stands)
+        
         return jsonify({
-            'usagePattern': usage_pattern
+            'usagePattern': usage_pattern,
+            'lastUpdate': last_update,
+            'isLiveData': True
         })
     except Exception as e:
         print(f"Error in get_station_history: {str(e)}")
