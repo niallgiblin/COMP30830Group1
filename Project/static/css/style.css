@@ -425,4 +425,397 @@ p {
   margin-bottom: 10px;
   width: 100%;
   overflow: hidden;
+}/* Base styling */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body, html {
+  height: 100%;
+  color: #666666;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+label {
+  font-family: inherit;     
+  font-size: 14px;
+  color: #333333;          
+}
+
+/* Map container */
+#map {
+  width: 100%;
+  height: 100vh;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+}
+
+#controls {
+  position: fixed;
+  bottom: 40px;
+  right: 10px;
+  background: none;
+  padding: 10px;
+  z-index: 1500;
+  width: auto;
+  height: auto;
+}
+
+/* Weather widget */
+#weather {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 10px;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(179, 45, 34, 0.2);
+  z-index: 1000;
+}
+
+.weather-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.weather-card img {
+  width: 40px;
+  height: 40px;
+}
+
+.weather-card p {
+  margin: 0;
+  font-size: 18px;
+  color: #333;
+  font-weight: bold;
+}
+
+/* Buttons */
+.button {
+  margin-top: 0px;
+  background-color: lightgray;
+  font-weight: bold;
+  box-shadow: 0 4px 12px rgba(179, 45, 34, 0.2);
+  color:#333333;
+  border-radius: 5px;
+  padding: 5px;
+  border: none;
+  outline: none;
+  font-size: 16px;
+
+}
+.button:hover{
+  background-color:  rgba(179, 45, 34, 0.9);         
+  transition: background-color 0.2s ease;
+  font-weight: bold;
+  color: white;
+}
+.map-button {
+  background-color: #4285F4;
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-top: 10px;
+  width: 100%;
+  transition: background-color 0.3s;
+}
+
+.map-button:hover {
+  background-color: #3367D6;
+}
+
+.map-button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+#resetBtn {
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 18px;
+  width: auto;
+  height: auto;
+  z-index: 10000;
+}
+
+
+#findNearestBikeBtn {
+  margin-top: 0px;
+  background-color: lightgray;
+  font-weight: bold;
+}
+
+#findNearestBikeBtn:hover {
+  background-color:  rgba(179, 45, 34, 0.9);         
+  transition: background-color 0.2s ease;
+  font-weight: bold;
+  color: white;
+}
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0 5px;
+}
+
+/* Station search and selection */
+.station-search {
+  margin: 5px 0;
+  margin-top: 15px;
+}
+
+.station-search label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+.search-container {
+  margin-bottom: 5px;
+}
+
+#stationSearch {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+#stationSelect {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: white;
+  font-size: 14px;
+}
+
+/* Station info panel */
+#stationInfo {
+  padding: 5px;
+  background: #f5f5f5;
+  border-radius: 6px;
+  font-size: 16px;
+}
+
+
+#stationInfo p {
+  margin: 2px 0;
+}
+
+/* Directions panel */
+#directions-panel {
+  position: absolute;
+  top: 80px;
+  right: 10px;
+  width: 300px;
+  max-height: 60vh;
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+  z-index: 1000;
+  overflow-y: auto;
+}
+
+.directions-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.directions-header h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.direction-step {
+  display: flex;
+  margin-bottom: 15px;
+  align-items: flex-start;
+}
+
+.step-icon {
+  margin-right: 10px;
+  font-size: 18px;
+  min-width: 24px;
+  text-align: center;
+}
+
+.step-content {
+  flex: 1;
+}
+
+.step-distance {
+  color: #666;
+  font-size: 12px;
+  margin-top: 3px;
+}
+
+.route-summary {
+  background-color: #f5f5f5;
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 15px;
+  font-size: 14px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  #controls {
+    bottom: 100px;
+    right: 10px;
+    max-width: 90vw;
+  }
+  
+  #directions-panel {
+    width: calc(100% - 20px);
+    max-width: 400px;
+    left: 10px;
+    right: auto;
+    top: auto;
+    bottom: 10px;
+    max-height: 40vh;
+  }
+  
+  #weather {
+    top: auto;
+    bottom: 10px;
+    right: 10px;
+  }
+}
+
+/* Modal 3: Prediction */
+#result {
+  position: relative;
+  z-index: 90;
+  background: none;
+}
+
+/* Sidebar */
+
+
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 300px;
+  height: auto;
+  background-color: rgba(245, 245, 245, 0.8);
+  padding: 10px;
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+  z-index: 1500;
+  display: flex;
+  flex-direction: column;
+
+}
+
+.banner {
+  background-image: url('/static/images/banner.jpeg');
+  background-size: cover;   
+  background-repeat: no-repeat;
+  background-position: center;
+  height: 115px;              
+  width: 100%;
+}
+
+/* Navigation */
+.navbar {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.navbar button {
+  display: flex;
+  align-items: center;
+  padding: 7px 7px;
+  background-color: transparent;
+  color: #333;
+  border: none;
+  font-size: 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, font-weight 0.2s ease;
+  text-align: left;
+  font-weight: bold;
+}
+
+/* Hover effect */
+.navbar button:hover {
+  background-color:  rgba(179, 45, 34, 0.9);         
+  transition: background-color 0.2s ease;
+  font-weight: bold;
+  color: white;
+}
+
+.navbar button.active {
+  background-color: #ddd;
+  font-weight: bold;
+}
+
+.modal-container {
+  position: relative;
+  margin-top: 10px; 
+  padding: 10px;
+  z-index: 1;
+}
+
+.modal{
+  max-width: 360px;
+  background-color: #f5f5f5;    
+  padding: 5px;
+  margin-top: 5px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  font-family: 'Segoe UI', sans-serif;
+  color: #333;
+  position: relative;
+  z-index: 1000;
+  display: none;
+  font-size: 14px;
+}
+
+.modal-close {
+  position: absolute;  
+  top: 2px;
+  right: 5px;
+  cursor: pointer;
+  color: grey;
+  font-size: 16px;
+  transition: color 0.2s ease;
+}
+
+.modal-close:hover {
+  color:  rgba(179, 45, 34, 0.9); 
+  font-weight: bold; 
+  transform: scale(1.1); 
+}
+
+.modal p {
+  font-size: 14px;
+  color: #333333;    
+  line-height: 1.5;
+  margin-top: 20px;
+  text-align: justify;
+  padding: 10px 0;
+}
+
+#stationInfo p {
+  padding: 0px;
 }
