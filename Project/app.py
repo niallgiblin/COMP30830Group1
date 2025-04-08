@@ -185,6 +185,7 @@ def fetch_openweather_forecast(datetime):
 
     return None
 
+
 # Define a route for predictions
 @app.route("/predict", methods=["GET"])
 def predict():
@@ -192,7 +193,7 @@ def predict():
         # Get date and time from request
         date = request.args.get("date")
         time = request.args.get("time")
-        station_id = request.args.get("station_id")  #station_id as an input parameter
+        station_id = request.args.get("station_id") 
         if not date or not time or not station_id:
             return jsonify({"error": "Missing date, time, or station_id parameter"}), 400
         if int(station_id) > 117:
@@ -202,6 +203,7 @@ def predict():
         dt = datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M:%S")
         hour = dt.hour
         day_of_week = dt.weekday()
+        station_hour = f"{str(station_id)}_{hour}"
 
         openweather_data = fetch_openweather_forecast(dt)
         print("Weather data:", openweather_data) ##PRINTING to check
@@ -213,12 +215,14 @@ def predict():
             openweather_data["humidity"],
             openweather_data["pressure"],
             hour,
+            station_hour,
             day_of_week,
         ]
         import pandas as pd
 
-        columns = ['station_id', 'temperature', 'humidity', 'pressure', 'hour', 'day_of_week'] #Convert to df to match with model
+        columns = ['station_id', 'temperature', 'humidity', 'pressure', 'hour', 'station_hour' ,'day_of_week'] #Convert to df to match with model
         input_df = pd.DataFrame([input_features], columns=columns)
+
 
         print("Input features:", input_features) #PRINTING to check
         prediction = model.predict(input_df)
