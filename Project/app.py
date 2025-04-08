@@ -3,16 +3,25 @@ from sqlalchemy import create_engine, text
 import os
 from dotenv import load_dotenv
 import requests
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import pickle
 import numpy as np
 import sklearn
+import json
+import pandas as pd
+import logging
 
-with open("project/data/bike_availability_model.pkl", "rb") as file:
-    model = pickle.load(file)
-
-# Load environment variables from .env file
+# Load environment variables
 load_dotenv()
+
+# Load the machine learning model
+model_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'bike_availability_model.pkl')
+with open(model_path, 'rb') as f:
+    model = pickle.load(f)
+
+# Load historical data
+data_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'final_data_for_ml.csv')
+historical_data = pd.read_csv(data_path)
 
 # Create Flask app
 app = Flask(__name__, static_url_path='/static')
@@ -234,11 +243,57 @@ def predict():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/station_history/<int:station_id>')
+def get_station_history(station_id):
+    """Get historical usage data for a station"""
+    try:
+        # Filter data for the specific station
+        station_data = historical_data[historical_data['station_id'] == station_id]
+        
+        if station_data.empty:
+            # If no data for this station, return default pattern
+            time_labels = ['05:00', '08:00', '11:00', '14:00', '17:00', '20:00', '23:00']
+            usage_pattern = {
+                'labels': time_labels,
+                'available_bikes': [5, 8, 12, 15, 10, 7, 4],
+                'available_stands': [15, 12, 8, 5, 10, 13, 16]
+            }
+        else:
+            # Calculate average bikes available by hour
+            hourly_avg = station_data.groupby('hour')['num_bikes_available'].mean().reset_index()
+            
+            # Ensure we have data for all hours (0-23)
+            all_hours = pd.DataFrame({'hour': range(24)})
+            hourly_avg = pd.merge(all_hours, hourly_avg, on='hour', how='left')
+            hourly_avg['num_bikes_available'] = hourly_avg['num_bikes_available'].fillna(method='ffill').fillna(method='bfill')
+            
+            # Get total capacity (max bikes + available stands)
+            total_capacity = station_data['num_bikes_available'].max() + 5  # Assuming 5 stands as default
+            
+            # Select specific hours for display (every 3 hours from 5am to midnight)
+            selected_hours = [5, 8, 11, 14, 17, 20, 23]
+            time_labels = [f"{hour:02d}:00" for hour in selected_hours]
+            
+            # Get data for selected hours and round to whole numbers
+            available_bikes = [round(hourly_avg[hourly_avg['hour'] == hour]['num_bikes_available'].values[0]) for hour in selected_hours]
+            available_stands = [round(total_capacity - bikes) for bikes in available_bikes]
+            
+            usage_pattern = {
+                'labels': time_labels,
+                'available_bikes': available_bikes,
+                'available_stands': available_stands
+            }
+        
+        return jsonify({
+            'usagePattern': usage_pattern
+        })
+    except Exception as e:
+        print(f"Error in get_station_history: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 # Run the app
 if __name__ == '__main__':
     # Set up logging
-    import logging
     logging.basicConfig(level=logging.INFO)
     
     # Run the app

@@ -118,24 +118,22 @@ const UIModule = (function () {
     stationNameElement.textContent = station.name;
     stationStatusElement.textContent = station.status;
 
-    // Use cached data if available
-    if (window.StationsModule) {
-      const cache = window.StationsModule.getCache();
-      if (cache[station.number]) {
-        const availability = cache[station.number].data;
-        availableBikesElement.textContent = availability.available_bikes;
-        freeStandsElement.textContent = availability.available_bike_stands;
-      } else {
-        // API call if no cache
-        const availability = await window.StationsModule.fetchAvailability(
-          station.number
-        );
-        availableBikesElement.textContent = availability.available_bikes;
-        freeStandsElement.textContent = availability.available_bike_stands;
-      }
+    // Fetch latest availability data
+    const [availabilityData] = await window.StationsModule.loadStationsAvailability([station.number]);
+    if (availabilityData) {
+      availableBikesElement.textContent = availabilityData.available_bikes;
+      freeStandsElement.textContent = availabilityData.available_bike_stands;
+    } else {
+      availableBikesElement.textContent = "N/A";
+      freeStandsElement.textContent = "N/A";
     }
 
     stationInfoElement.style.display = "block";
+    
+    // Update charts with station data
+    if (window.ChartsModule && typeof window.ChartsModule.updateCharts === 'function') {
+      window.ChartsModule.updateCharts(station.number);
+    }
   }
 
   // Toggle reset button visibility
