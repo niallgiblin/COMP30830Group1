@@ -216,10 +216,11 @@ p {
 
 /* Station info panel */
 #stationInfo {
-  padding: 5px;
-  background: #f5f5f5;
+  width: 100%;
+  padding: 10px;
+  background-color: #f5f5f5;
   border-radius: 6px;
-  font-size: 16px;
+  margin-top: 15px;
 }
 
 #stationInfo p {
@@ -387,8 +388,8 @@ p {
   z-index: 1;
 }
 
-.modal{
-  max-width: 360px;
+.modal {
+  max-width: 450px;
   background-color: #f5f5f5;    
   padding: 5px;
   margin-top: 5px;
@@ -399,7 +400,9 @@ p {
   z-index: 1000;
   display: none;
   font-size: 14px;
-  overflow: hidden;
+  overflow-y: auto;
+  max-height: 80vh;
+  padding-bottom: 30px;
 }
 
 .modal-close {
@@ -445,4 +448,55 @@ p {
 .navbar button:last-child {
   margin-bottom: 0;
   padding-bottom: 7px;
+}
+
+/* Charts styling */
+.charts-container {
+  margin-top: 15px;
+  padding: 10px;
+  background-color: #f9f9f9;
+  border-radius: 6px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  max-height: none;
+  overflow-y: visible;
+  width: 100%;
+}
+
+.charts-container h4 {
+  margin: 10px 0 15px 0;
+  font-size: 16px;
+  color: #333;
+  font-weight: bold;
+  text-align: center;
+}
+
+.charts-container canvas {
+  width: 100% !important;
+  height: 250px !important;
+  margin-bottom: 20px;
+  display: block;
+}
+
+/* Remove individual chart titles */
+.chart-title {
+  display: none;
+}
+
+/* Responsive adjustments for modals */
+@media (max-height: 700px) {
+  .modal {
+    max-height: 70vh;
+  }
+}
+
+@media (max-height: 600px) {
+  .modal {
+    max-height: 60vh;
+  }
+}
+
+@media (max-height: 500px) {
+  .modal {
+    max-height: 50vh;
+  }
 }

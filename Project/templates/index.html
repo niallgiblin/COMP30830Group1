@@ -54,6 +54,13 @@
                     <p><b>Available Bikes:</b> <span id="availableBikes">N/A</span></p>
                     <p><b>Free Stands:</b> <span id="freeStands">N/A</span></p>
                     <p><b>Status:</b> <span id="stationStatus">N/A</span></p>
+                    
+                    <!-- Charts container -->
+                    <div class="charts-container">
+                        <h4>Typical Daily Usage</h4>
+                        <canvas id="usageChart"></canvas>
+                        <canvas id="busyTimesChart"></canvas>
+                    </div>
                 </div>
             </div>
       </div>
@@ -116,8 +123,10 @@
 <script src="{{ url_for('static', filename='js/weather.js') }}"></script>
 <script src="{{ url_for('static', filename='js/directions.js') }}"></script>
 <script src="{{ url_for('static', filename='js/predict.js') }}"></script>
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
 <script src="{{ url_for('static', filename='js/map.js') }}"></script>
 <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <!-- Load Google Maps API last, after all modules are loaded -->
 <script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&callback=initMap&loading=async" async defer></script>
