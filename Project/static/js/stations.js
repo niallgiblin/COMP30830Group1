@@ -2,10 +2,12 @@ const StationsModule = (function () {
   let stationData = [];
   const AVAILABILITY_CACHE = {};
   const PENDING_REQUESTS = {};
-  const CACHE_EXPIRY = Infinity;
+  const CACHE_EXPIRY = 5 * 60 * 1000; // 5 minutes in milliseconds
   const MAX_CONCURRENT_REQUESTS = 6; // Match browser limits
-  let activeRequests = 0;
   const REQUEST_QUEUE = [];
+  let activeRequests = 0;
+  let refreshInterval = null;
+  let isProcessingQueue = false;
 
   // Load station data from API
   async function loadStations() {
@@ -46,6 +48,35 @@ const StationsModule = (function () {
     }
   }
 
+  // Process the request queue
+  async function processQueue() {
+    if (isProcessingQueue || REQUEST_QUEUE.length === 0) return;
+    
+    isProcessingQueue = true;
+    
+    try {
+      while (REQUEST_QUEUE.length > 0 && activeRequests < MAX_CONCURRENT_REQUESTS) {
+        const process = REQUEST_QUEUE.shift();
+        activeRequests++;
+        
+        try {
+          await process();
+        } catch (error) {
+          console.warn("Error processing request:", error);
+        } finally {
+          activeRequests--;
+        }
+      }
+    } finally {
+      isProcessingQueue = false;
+      
+      // If there are still items in the queue, schedule another processing run
+      if (REQUEST_QUEUE.length > 0) {
+        setTimeout(processQueue, 10);
+      }
+    }
+  }
+
   async function throttledFetch(url, stationId) {
     // Return existing promise if this station request is already in progress
     if (stationId && PENDING_REQUESTS[stationId]) {
@@ -54,25 +85,26 @@ const StationsModule = (function () {
 
     const fetchPromise = new Promise((resolve) => {
       const process = async () => {
-        activeRequests++;
         try {
           const response = await fetch(url);
           resolve(response.ok ? await response.json() : null);
-        } catch {
+        } catch (error) {
+          console.warn(`Error fetching ${url}:`, error);
           resolve(null);
         } finally {
-          activeRequests--;
           if (stationId) delete PENDING_REQUESTS[stationId];
-          if (REQUEST_QUEUE.length > 0) {
-            REQUEST_QUEUE.shift()();
-          }
         }
       };
 
       if (activeRequests < MAX_CONCURRENT_REQUESTS) {
-        process();
+        activeRequests++;
+        process().finally(() => {
+          activeRequests--;
+          processQueue();
+        });
       } else {
         REQUEST_QUEUE.push(process);
+        processQueue();
       }
     });
 
@@ -109,15 +141,38 @@ const StationsModule = (function () {
   }
 
   async function loadStationsAvailability(stationIds) {
+    if (!stationIds || stationIds.length === 0) {
+      console.log("No station IDs provided for availability check");
+      return [];
+    }
+    
     console.log(`Fetching availability for ${stationIds.length} stations...`);
 
-    const availabilityPromises = stationIds.map((id) => fetchAvailability(id));
-    await Promise.all(availabilityPromises);
+    // Filter out stations that already have valid cached data
+    const stationsToFetch = stationIds.filter(id => {
+      const cached = AVAILABILITY_CACHE[id];
+      return !cached || Date.now() - cached.timestamp >= CACHE_EXPIRY;
+    });
+    
+    if (stationsToFetch.length === 0) {
+      console.log("All stations have valid cached data, no fetch needed");
+      return stationIds.map(id => AVAILABILITY_CACHE[id]?.data);
+    }
+    
+    console.log(`Actually fetching ${stationsToFetch.length} stations (others cached)`);
+    
+    // Process in batches to avoid overwhelming the server
+    const batchSize = 5;
+    for (let i = 0; i < stationsToFetch.length; i += batchSize) {
+      const batch = stationsToFetch.slice(i, i + batchSize);
+      const availabilityPromises = batch.map(id => fetchAvailability(id));
+      await Promise.all(availabilityPromises);
+    }
 
-    return stationIds.map((id) => AVAILABILITY_CACHE[id]?.data);
+    return stationIds.map(id => AVAILABILITY_CACHE[id]?.data);
   }
 
-  // Load all availability data - only if absolutely necessary
+  // Load all availability data - only if necessary
   async function loadAllAvailability() {
     console.warn("Loading ALL station availability - this is expensive!");
     const stationNumbers = stationData.map((station) => station.number);
@@ -125,25 +180,33 @@ const StationsModule = (function () {
   }
 
   function setupPeriodicRefresh() {
-    setInterval(() => {
+    // Clear any existing interval
+    if (refreshInterval) {
+      clearInterval(refreshInterval);
+    }
+    
+    // Set a reasonable refresh interval (5 minutes)
+    refreshInterval = setInterval(() => {
       // Get IDs of stations currently visible on the map
       const visibleStationIds = window.MapModule?.getVisibleStations?.() || [];
 
       // Only refresh what the user can see
       if (visibleStationIds.length > 0) {
-        // Force refresh by invalidating cache
-        visibleStationIds.forEach((id) => {
-          if (AVAILABILITY_CACHE[id]) {
-            AVAILABILITY_CACHE[id].timestamp = 0;
-          }
+        // Only refresh stations with expired cache
+        const stationsToRefresh = visibleStationIds.filter(id => {
+          const cached = AVAILABILITY_CACHE[id];
+          return !cached || Date.now() - cached.timestamp >= CACHE_EXPIRY;
         });
-
-        loadStationsAvailability(visibleStationIds);
+        
+        if (stationsToRefresh.length > 0) {
+          console.log(`Refreshing ${stationsToRefresh.length} stations with expired cache`);
+          loadStationsAvailability(stationsToRefresh);
+        }
       }
     }, CACHE_EXPIRY);
   }
 
-  // Get user's current position (geolocation)
+  // Get user's current location
   async function getUserLocation() {
     return new Promise((resolve, reject) => {
       if (navigator.geolocation) {
@@ -199,61 +262,75 @@ const StationsModule = (function () {
       });
 
       if (availableStations.length === 0) {
-        throw new Error("No available bikes found nearby.");
+        UIModule?.showAlert("No available bikes found nearby. Try another location.");
+        return null;
       }
 
-      // Nearest available station is the first one
+      // Get the closest station with available bikes
       const nearestStation = availableStations[0];
-      console.log("Nearest Station:", nearestStation);
+      console.log("Nearest available station:", nearestStation);
 
-      // Show directions & update UI
+      // Center map on the station
       if (window.MapModule) {
         window.MapModule.centerOnStation(nearestStation);
-        window.MapModule.setUserLocationMarker(userLocation);
-        await window.MapModule.showDirections(userLocation, nearestStation);
+        
+        // Show directions to the nearest station
+        if (window.MapModule.showDirections) {
+          // Set user location marker
+          window.MapModule.setUserLocationMarker(userLocation);
+          
+          // Show directions from user location to the nearest station
+          window.MapModule.showDirections(userLocation, nearestStation);
+        } else {
+          console.warn("MapModule.showDirections is not available");
+        }
       }
 
+      // Show station info
       if (window.UIModule) {
         window.UIModule.showStationInfo(nearestStation);
-        window.UIModule.showResetButton();
       }
 
       return nearestStation;
     } catch (error) {
-      console.error("Find bike error:", error);
-      window.UIModule?.showAlert(
-        "Error finding nearest bike: " + error.message
-      );
+      console.error("Error finding nearest bike:", error);
+      UIModule?.showError("Could not find nearest bike. Please try again.");
       return null;
     }
   }
 
-  // Reset the app to the default state
   function resetApp() {
-    if (window.MapModule) window.MapModule.resetView();
-
-    const stationSelect = document.getElementById("stationSelect");
-    if (stationSelect) stationSelect.value = "";
-
-    const stationInfo = document.getElementById("stationInfo");
-    if (stationInfo) stationInfo.style.display = "none";
-
-    const directionsPanel = document.getElementById("directions-panel");
-    if (directionsPanel) directionsPanel.style.display = "none";
+    // Clear all caches
+    Object.keys(AVAILABILITY_CACHE).forEach(key => {
+      delete AVAILABILITY_CACHE[key];
+    });
+    
+    // Clear all pending requests
+    Object.keys(PENDING_REQUESTS).forEach(key => {
+      delete PENDING_REQUESTS[key];
+    });
+    
+    // Reset request queue
+    REQUEST_QUEUE.length = 0;
+    activeRequests = 0;
+    
+    // Reload stations
+    loadStations();
   }
 
   // Public API
   return {
     loadStations,
+    fetchAvailability,
     loadStationsAvailability,
     loadAllAvailability,
-    fetchAvailability,
     findNearestAvailableBike,
-    getStationData: () => stationData,
-    getCache: () => AVAILABILITY_CACHE,
     getUserLocation,
     resetApp,
+    getStationData: () => stationData,
+    getCache: () => AVAILABILITY_CACHE,
   };
 })();
 
+// Make StationsModule available
 window.StationsModule = StationsModule;

@@ -11,7 +11,6 @@ import sklearn
 with open("project/data/bike_availability_model.pkl", "rb") as file:
     model = pickle.load(file)
 
-
 # Load environment variables from .env file
 load_dotenv()
 
@@ -136,7 +135,6 @@ def get_station_availability(station_id):
 @app.route('/api/weather')
 def get_weather():
     try:
-        # Replace with your actual OpenWeatherMap API key
         api_key = os.environ.get('OPENWEATHER_API_KEY')
         response = requests.get(
             f"https://api.openweathermap.org/data/2.5/weather?q=Dublin&appid={api_key}&units=metric"
