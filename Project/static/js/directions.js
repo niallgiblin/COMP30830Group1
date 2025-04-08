@@ -75,4 +75,5 @@ const DirectionsModule = (function () {
   };
 })();
 
+// Make DirectionsModule available globally
 window.DirectionsModule = DirectionsModule;

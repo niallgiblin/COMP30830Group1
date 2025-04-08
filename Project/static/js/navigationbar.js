@@ -18,3 +18,7 @@ function openModal(id) {
     });
   });
   
+  // Make functions available globally
+  window.openModal = openModal;
+  window.closeModal = closeModal;
+  

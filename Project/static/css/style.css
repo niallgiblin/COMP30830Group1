@@ -16,6 +16,7 @@ label {
   font-size: 14px;
   color: #333333;          
 }
+
 p {
   text-align: justify;
   padding: 10px 0;
@@ -84,14 +85,15 @@ p {
   border: none;
   outline: none;
   font-size: 16px;
-
 }
+
 .button:hover{
   background-color:  rgba(179, 45, 34, 0.9);         
   transition: background-color 0.2s ease;
   font-weight: bold;
   color: white;
 }
+
 .map-button {
   background-color: #4285F4;
   color: white;
@@ -123,8 +125,16 @@ p {
   width: auto;
   height: auto;
   z-index: 10000;
+  background-color: #e74c3c; /* Red color */
+  color: white;
+  font-weight: bold;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
+#resetBtn:hover {
+  background-color: #c0392b; /* Darker red on hover */
+  transition: background-color 0.2s ease;
+}
 
 #findNearestBikeBtn {
   margin-top: 0px;
@@ -138,6 +148,7 @@ p {
   font-weight: bold;
   color: white;
 }
+
 .close-btn {
   background: none;
   border: none;
@@ -179,6 +190,18 @@ p {
   font-size: 14px;
 }
 
+/* Prediction dropdown styling */
+#predictionStationSelect {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: white;
+  font-size: 14px;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
 /* Station info panel */
 #stationInfo {
   padding: 5px;
@@ -186,7 +209,6 @@ p {
   border-radius: 6px;
   font-size: 16px;
 }
-
 
 #stationInfo p {
   margin: 2px 0;
@@ -277,9 +299,6 @@ p {
   }
 }
 
-
-
-
 #result {
   position: relative;
   z-index: 90;
@@ -287,8 +306,6 @@ p {
 }
 
 /* Sidebar */
-
-
 .sidebar {
   position: fixed;
   top: 0;
@@ -344,12 +361,10 @@ p {
   color: white;
 }
 
-/* Optional: active style */
 .navbar button.active {
   background-color: #ddd;
   font-weight: bold;
 }
-
 
 .moda-container {
   position: relative;
@@ -370,6 +385,7 @@ p {
   z-index: 1000;
   display: none;
   font-size: 14px;
+  overflow: hidden;
 }
 
 .modal-close {
@@ -393,4 +409,20 @@ p {
   color: #333333;    
   line-height: 1.5;
   margin-top: 20px;
+}
+
+/* Prediction modal specific styling */
+#prediction {
+  overflow: hidden;
+}
+
+#prediction-ml {
+  padding: 10px;
+  overflow: hidden;
+}
+
+#prediction-ml .select {
+  margin-bottom: 10px;
+  width: 100%;
+  overflow: hidden;
 }
