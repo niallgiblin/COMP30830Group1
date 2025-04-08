@@ -3,6 +3,9 @@ const ChartsModule = (function() {
   // Chart instances
   let usageChart = null;
   let standsChart = null;
+  let currentStationId = null;
+  let updateInterval = null;
+  const REFRESH_INTERVAL = 30000; // Refresh every 30 seconds
   
   // Initialize charts
   function initCharts() {
@@ -113,6 +116,8 @@ const ChartsModule = (function() {
             title: {
               display: false
             },
+            min: '05:00',
+            max: '23:00',
             ticks: {
               font: {
                 size: 12
@@ -212,6 +217,8 @@ const ChartsModule = (function() {
             title: {
               display: false
             },
+            min: '05:00',
+            max: '23:00',
             ticks: {
               font: {
                 size: 12
@@ -232,6 +239,14 @@ const ChartsModule = (function() {
   function updateCharts(stationId) {
     console.log(`Updating charts for station ${stationId}`);
     
+    // Clear existing update interval if any
+    if (updateInterval) {
+      clearInterval(updateInterval);
+    }
+    
+    // Store current station ID
+    currentStationId = stationId;
+    
     // Show loading state
     const usageCanvas = document.getElementById("usageChart");
     const standsCanvas = document.getElementById("busyTimesChart");
@@ -250,55 +265,72 @@ const ChartsModule = (function() {
       });
     }
     
-    // Fetch historical data for the station
-    fetch(`/api/station_history/${stationId}`)
-      .then(response => {
-        if (!response.ok) {
-          throw new Error('Network response was not ok');
-        }
-        return response.json();
-      })
-      .then(data => {
-        console.log("Received station history data:", data);
-        
-        if (!data.usagePattern) {
-          throw new Error('No usage pattern data received');
-        }
-        
-        // Update usage chart
-        if (usageCanvas) {
-          createUsageChart(usageCanvas, {
-            labels: data.usagePattern.labels,
-            values: data.usagePattern.available_bikes
-          });
-        }
-        
-        // Update stands chart
-        if (standsCanvas) {
-          createStandsChart(standsCanvas, {
-            labels: data.usagePattern.labels,
-            values: data.usagePattern.available_stands
-          });
-        }
-      })
-      .catch(error => {
-        console.error("Error fetching station history:", error);
-        
-        // Create empty charts with placeholder data
-        if (usageCanvas) {
-          createUsageChart(usageCanvas, {
-            labels: ['00:00', '03:00', '06:00', '09:00', '12:00', '15:00', '18:00', '21:00'],
-            values: [5, 3, 2, 8, 12, 15, 10, 7]
-          });
-        }
-        
-        if (standsCanvas) {
-          createStandsChart(standsCanvas, {
-            labels: ['00:00', '03:00', '06:00', '09:00', '12:00', '15:00', '18:00', '21:00'],
-            values: [15, 17, 18, 12, 8, 5, 10, 13]
-          });
-        }
-      });
+    // Function to fetch and update data
+    const fetchAndUpdateData = () => {
+      // Fetch historical data for the station
+      fetch(`/api/station_history/${stationId}`)
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('Network response was not ok');
+          }
+          return response.json();
+        })
+        .then(data => {
+          console.log("Received station history data:", data);
+          
+          if (!data.usagePattern) {
+            throw new Error('No usage pattern data received');
+          }
+          
+          // Update usage chart
+          if (usageCanvas) {
+            createUsageChart(usageCanvas, {
+              labels: data.usagePattern.labels,
+              values: data.usagePattern.available_bikes
+            });
+          }
+          
+          // Update stands chart
+          if (standsCanvas) {
+            createStandsChart(standsCanvas, {
+              labels: data.usagePattern.labels,
+              values: data.usagePattern.available_stands
+            });
+          }
+
+          // Update last refresh time if provided
+          if (data.lastUpdate) {
+            const lastUpdateEl = document.getElementById('lastUpdate');
+            if (lastUpdateEl) {
+              lastUpdateEl.textContent = `Last updated: ${data.lastUpdate}`;
+            }
+          }
+        })
+        .catch(error => {
+          console.error("Error fetching station history:", error);
+          
+          // Create empty charts with placeholder data
+          if (usageCanvas) {
+            createUsageChart(usageCanvas, {
+              labels: ['05:00', '08:00', '11:00', '14:00', '17:00', '20:00', '23:00'],
+              values: [5, 8, 12, 15, 10, 7, 4]
+            });
+          }
+          
+          if (standsCanvas) {
+            createStandsChart(standsCanvas, {
+              labels: ['05:00', '08:00', '11:00', '14:00', '17:00', '20:00', '23:00'],
+              values: [15, 12, 8, 5, 10, 13, 16]
+            });
+          }
+        });
+    };
+    
+    // Fetch data immediately
+    fetchAndUpdateData();
+    
+    // Set up interval for regular updates
+    updateInterval = setInterval(fetchAndUpdateData, REFRESH_INTERVAL);
   }
   
   // Public API
