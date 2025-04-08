@@ -115,6 +115,11 @@ const MapModule = (function () {
     // Hide directions panel
     document.getElementById("directions-panel").style.display = "none";
 
+    // Close the Find a Station modal
+    if (typeof window.closeModal === 'function') {
+      window.closeModal('station');
+    }
+
     // Reset all markers to default appearance
     resetMarkersToDefault();
 

@@ -15,10 +15,11 @@
     <!-- Banner-->
         <div class = "banner"></div>
     <!-- Navbar-->    
-        <div class = "navbar">
+        <div class="navbar">
         <button onclick="openModal('about')">About Us</button>
         <button onclick="openModal('station')">Find a Station</button>
-        <button onclick="openModal('prediction')">Bike Availability Prediction</button> </div>
+        <button onclick="openModal('prediction')">Bike Availability Prediction</button>
+        </div>
     <div class="modal-container">
     <!-- Modal 1: About us-->
       <div id="about" class="modal">
@@ -71,6 +72,9 @@
                 <input type="time" id="time" required></div>
                 <div class = "select">
                 <label for="predictionStationSelect">Select Station:</label>
+                <div class="search-container" style="width: 100%;">
+                    <input type="text" id="predictionStationSearch" placeholder="Search stations...">
+                </div>
                 <select id="predictionStationSelect">
                     <option value="">Select a station</option>
                 </select>
