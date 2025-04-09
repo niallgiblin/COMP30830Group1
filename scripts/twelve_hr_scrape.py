@@ -4,26 +4,32 @@ import datetime
 import time
 import traceback
 import threading
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'Project', '.env'))
 
 # JCDecaux API constants
-JCKEY = "49e68d2d5153f2954850d6d9fe80295cbe9c62d2"
+JCKEY = os.getenv("JCDECAUX_API_KEY")
 NAME = "dublin"
 STATIONS_URI = "https://api.jcdecaux.com/vls/v1/stations"
 
 # OpenWeatherMap API constants
-OPENWEATHER_API_KEY = "6662905812925bbd641b91d8fe237874"
+OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY")
 OPENWEATHER_URL = "https://api.openweathermap.org/data/3.0/onecall"
 
 # Dublin coordinates (latitude and longitude)
 DUBLIN_LAT = 53.349805
 DUBLIN_LNG = -6.26031
 
-# Database configuration. Niall's info, change to match other machines
+# Database configuration from environment variables
 db_config = {
-    "host": "localhost",
-    "user": "root",
-    "password": "River2022!",
-    "database": "local_databasejcdecaux"
+    "host": os.getenv("DB_HOST", "localhost"),
+    "user": os.getenv("DB_USER", "root"),
+    "password": os.getenv("DB_PASSWORD"),
+    "database": os.getenv("DB_NAME", "local_databasejcdecaux"),
+    "port": int(os.getenv("DB_PORT", "3306"))
 }
 
 # Function to fetch and insert JCDecaux data

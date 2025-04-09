@@ -1,11 +1,17 @@
 // main.js
 document.addEventListener("DOMContentLoaded", function () {
   console.log("DOM loaded, waiting for Google Maps...");
-
-  // Initialize when Google Maps is loaded
+  
+  // Define initMap function immediately to ensure it's available when Google Maps calls it
   window.initMap = async function () {
     try {
       console.log("Google Maps loaded, initializing application...");
+      
+      // Check if required modules are available
+      if (!window.MapModule) {
+        console.error("MapModule not loaded");
+        throw new Error("MapModule not loaded");
+      }
 
       // Initialize the map first
       const map = MapModule.init();
@@ -24,11 +30,23 @@ document.addEventListener("DOMContentLoaded", function () {
       if (DirectionsModule && DirectionsModule.init) {
         DirectionsModule.init();
         console.log("Directions module initialized");
+      } else {
+        console.warn("DirectionsModule not available");
       }
 
       // Load stations data
-      await StationsModule.loadStations();
-      console.log("Stations loaded");
+      if (window.StationsModule && window.StationsModule.loadStations) {
+        await StationsModule.loadStations();
+        console.log("Stations loaded");
+        
+        // Initialize prediction dropdown after stations are loaded
+        if (typeof initPredictionDropdown === 'function') {
+          initPredictionDropdown();
+          console.log("Prediction dropdown initialized");
+        }
+      } else {
+        console.error("StationsModule not loaded");
+      }
 
       // Fetch weather data
       if (WeatherModule && WeatherModule.fetch) {
@@ -37,27 +55,32 @@ document.addEventListener("DOMContentLoaded", function () {
         });
       }
 
-      // Initialize the reset button as hidden
-      const resetBtn = document.getElementById("resetBtn");
-      if (resetBtn) {
-        resetBtn.style.display = "none";
+      // Initialize the find bike button
+      const findBikeBtn = document.getElementById("findNearestBikeBtn");
+      if (findBikeBtn) {
+        findBikeBtn.addEventListener("click", function () {
+          console.log("Find Bike button clicked");
+          if (window.StationsModule && window.StationsModule.findNearestAvailableBike) {
+            // Use requestAnimationFrame to avoid blocking the main thread
+            requestAnimationFrame(() => {
+              StationsModule.findNearestAvailableBike();
+            });
+          }
+        });
       }
 
       console.log("Application initialization complete");
     } catch (error) {
       console.error("Initialization error:", error);
-      alert(
-        "Failed to initialize the application. Please try refreshing the page."
-      );
+      alert("Failed to initialize the application. Please try refreshing the page.");
     }
   };
-    const findBikeBtn = document.getElementById("findNearestBikeBtn");
-    if (findBikeBtn) {
-      findBikeBtn.addEventListener("click", function () {
-        console.log("Find Bike button clicked");
-        StationsModule.findNearestAvailableBike();
-      });
-    } else {
-      console.error("Find Bike button not found in the DOM!");
-  }
+  
+  // Add a fallback in case Google Maps doesn't load
+  setTimeout(function() {
+    if (typeof google === 'undefined' || typeof google.maps === 'undefined') {
+      console.error("Google Maps failed to load");
+      alert("Google Maps failed to load. Please check your internet connection and refresh the page.");
+    }
+  }, 10000); // 10 second timeout
 });

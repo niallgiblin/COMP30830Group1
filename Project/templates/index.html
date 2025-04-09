@@ -15,10 +15,11 @@
     <!-- Banner-->
         <div class = "banner"></div>
     <!-- Navbar-->    
-        <div class = "navbar">
+        <div class="navbar">
         <button onclick="openModal('about')">About Us</button>
         <button onclick="openModal('station')">Find a Station</button>
-        <button onclick="openModal('prediction')">Bike Availability Prediction</button> </div>
+        <button onclick="openModal('prediction')">Bike Availability Prediction</button>
+        </div>
     <div class="modal-container">
     <!-- Modal 1: About us-->
       <div id="about" class="modal">
@@ -42,10 +43,9 @@
                     </select>
                 </div>
                 <!-- Find nearest bike-->
-                    <span class="modal-close" onclick="closeModal('bike')">&times;</span>
-                    <button id="findNearestBikeBtn" class="map-button">
-                        🚲 Find Nearest Available Bike
-                    </button>
+                <button id="findNearestBikeBtn" class="map-button">
+                    🚲 Find Nearest Available Bike
+                </button>
 
                 <!-- Station details panel -->
                 <div id="stationInfo" style="display: none;">
@@ -53,6 +53,13 @@
                     <p><b>Available Bikes:</b> <span id="availableBikes">N/A</span></p>
                     <p><b>Free Stands:</b> <span id="freeStands">N/A</span></p>
                     <p><b>Status:</b> <span id="stationStatus">N/A</span></p>
+                    
+                    <!-- Charts container -->
+                    <div class="charts-container">
+                        <h4>Typical Daily Usage</h4>
+                        <canvas id="usageChart"></canvas>
+                        <canvas id="busyTimesChart"></canvas>
+                    </div>
                 </div>
             </div>
       </div>
@@ -70,8 +77,14 @@
                 <label for="time">Select Time:</label>
                 <input type="time" id="time" required></div>
                 <div class = "select-ml">
-                <label for="station_id">Select Station ID:</label>
-                <input type="number" id="station_id" required></div>
+                <label for="predictionStationSelect">Select Station:</label>
+                <div class="search-container" style="width: 100%;">
+                    <input type="text" id="predictionStationSearch" placeholder="Search stations...">
+                </div>
+                <select id="predictionStationSelect">
+                    <option value="">Select a station</option>
+                </select>
+                </div>
                 <button class="button" onclick="predict()">Predict</button> 
                 <div id="result"></div></div>
         </div>
@@ -101,14 +114,19 @@
 
 
 <!-- Scripts -->
-<script src="{{ url_for('static', filename='js/map.js') }}"></script>
-<script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&callback=initMap&loading=async" async defer></script>
-<script src="{{ url_for('static', filename='js/navigationbar.js') }}"></script>
+<!-- Load all required modules first -->
 <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
+<script src="{{ url_for('static', filename='js/navigationbar.js') }}"></script>
+<script src="{{ url_for('static', filename='js/ui.js') }}"></script>
 <script src="{{ url_for('static', filename='js/stations.js') }}"></script>
 <script src="{{ url_for('static', filename='js/weather.js') }}"></script>
 <script src="{{ url_for('static', filename='js/directions.js') }}"></script>
-<script src="{{ url_for('static', filename='js/ui.js') }}"></script>
-<script src="{{ url_for('static', filename='js/main.js') }}"></script>
 <script src="{{ url_for('static', filename='js/predict.js') }}"></script>
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+<script src="{{ url_for('static', filename='js/map.js') }}"></script>
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- Load Google Maps API last, after all modules are loaded -->
+<script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&callback=initMap&loading=async" async defer></script>
 </body>

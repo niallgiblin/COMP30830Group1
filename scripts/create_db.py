@@ -1,15 +1,20 @@
 import requests
-import sqlalchemy as sqla
 from sqlalchemy import create_engine, text
 import traceback
 import time
 import json
+import os
+from dotenv import load_dotenv
 
-USER = "root"
-PASSWORD = "River2022!"
-PORT = "3306"
-DB = "local_databasejcdecaux"
-URI = "127.0.0.1"
+# Load environment variables from .env file
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'Project', '.env'))
+
+# Database configuration from environment variables
+USER = os.getenv("DB_USER", "root")
+PASSWORD = os.getenv("DB_PASSWORD")
+PORT = os.getenv("DB_PORT", "3306")
+DB = os.getenv("DB_NAME", "local_databasejcdecaux")
+URI = os.getenv("DB_HOST", "127.0.0.1")
 
 connection_string = f"mysql+pymysql://{USER}:{PASSWORD}@{URI}:{PORT}"
 
@@ -105,33 +110,21 @@ with engine.connect() as connection:
     tab_structure = connection.execute(text("SHOW COLUMNS FROM station;"))
     print(tab_structure.fetchall())
 
-# JCDecaux API constants
-JCKEY = "49e68d2d5153f2954850d6d9fe80295cbe9c62d2"
+# JCDecaux API
+JCKEY = os.getenv("JCDECAUX_API_KEY")
 NAME = "dublin"
 STATIONS_URI = "https://api.jcdecaux.com/vls/v1/stations"
 
 def stations_to_db(text):
     # let us load the stations from the text received from jcdecaux
     stations = json.loads(text)
-
+    
     # print type of the stations object, and number of stations
     print(type(stations), len(stations))
     
-    # let us print the type of the object stations (a dictionary) and load the content
+    # print the type of the object stations (a dictionary) and load the content
     for station in stations:
         print(type(station))
-
-        # let us load only the parts that we have included in our db:
-        # number INTEGER,
-        # contract_name VARCHAR(256),
-        # name VARCHAR(256),
-        # address VARCHAR(256), 
-        # position_lat REAL,
-        # position_lng REAL,
-        # banking INTEGER,
-        # bike_stands INTEGER,
-        # bonus INTEGER,
-        # status VARCHAR(256)
         
         # let us extract the relevant info from the dictionary
         vals = (int(station.get('number')), station.get('contract_name'), station.get('address'), int(station.get('banking')), int(station.get('bike_stands')), 
@@ -144,8 +137,33 @@ def stations_to_db(text):
                           """, vals)
 
 def write_to_db(data):
-    # Add functionality to store data in database
-    return
+    """
+    Write station availability data to the database.
+    
+    Args:
+        data: JSON data containing station availability information
+    """
+    stations = json.loads(data)
+    
+    for station in stations:
+        # Extract availability data
+        number = int(station.get('number'))
+        available_bikes = int(station.get('available_bikes', 0))
+        available_bike_stands = int(station.get('available_bike_stands', 0))
+        last_update = station.get('last_update')
+        
+        # Insert into availability table
+        with engine.connect() as connection:
+            connection.execute(text("""
+                INSERT INTO availability (number, available_bikes, available_bike_stands, last_update)
+                VALUES (:number, :available_bikes, :available_bike_stands, :last_update)
+            """), {
+                "number": number,
+                "available_bikes": available_bikes,
+                "available_bike_stands": available_bike_stands,
+                "last_update": last_update
+            })
+            connection.commit()
 
 def main():
     while True:

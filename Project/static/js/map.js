@@ -7,7 +7,8 @@ const MapModule = (function () {
   let userLocationMarker = null;
   let directionsRenderer;
   let onMarkerClickCallback = null;
-   let directionsService;
+  let directionsService;
+  let markerUpdateTimeout = null;
 
   // Custom map styles to hide certain POIs for better performance
   const mapStyles = [
@@ -53,6 +54,9 @@ const MapModule = (function () {
       streetViewControl: false,
       zoomControl: false,
       fullscreenControl: false,
+      gestureHandling: 'greedy',
+      maxZoom: 19,
+      minZoom: 10,
     });
 
     directionsService = new google.maps.DirectionsService();
@@ -62,21 +66,28 @@ const MapModule = (function () {
       panel: document.getElementById("directions-steps"),
     });
 
-          // Delay marker creation until tiles load
+    // Delay marker creation until tiles load
     google.maps.event.addListenerOnce(map, 'tilesloaded', () => {
-      const stations = StationsModule.getStationData();
-      if (stations.length > 0) {
-        addMarkersToMap(stations);
-      }
+      // Use requestAnimationFrame to avoid blocking the main thread
+      requestAnimationFrame(() => {
+        const stations = StationsModule.getStationData();
+        if (stations.length > 0) {
+          addMarkersToMap(stations);
+        }
+      });
     });
 
-    const controls = document.getElementById("controls");
+    // Initialize reset button
     const resetBtn = document.getElementById("resetBtn");
-    resetBtn.style.top = `${controls.offsetHeight + 20}px`;
+    if (resetBtn) {
+      resetBtn.addEventListener("click", resetToDefaultView);
+      // Hide reset button initially
+      resetBtn.style.display = "none";
+    }
+
     initDirectionsService();
     return map;
   }
-
 
   // Reset map to default view
   function resetToDefaultView() {
@@ -104,53 +115,91 @@ const MapModule = (function () {
     // Hide directions panel
     document.getElementById("directions-panel").style.display = "none";
 
+    // Close the Find a Station modal
+    if (typeof window.closeModal === 'function') {
+      window.closeModal('station');
+    }
+
     // Reset all markers to default appearance
-    resetMarkersToDefault(); // Now this will work
+    resetMarkersToDefault();
+
+    // Hide reset button after reset
+    const resetBtn = document.getElementById("resetBtn");
+    if (resetBtn) {
+      resetBtn.style.display = "none";
+    }
   }
 
   // Add station markers to the map
-function addMarkersToMap(stations) {
-  markers = [];
+  function addMarkersToMap(stations) {
+    // Clear existing markers first
+    markers.forEach(marker => marker.setMap(null));
+    markers = [];
 
-  stations.forEach((station) => {
-    const lat = parseFloat(station.position_lat);
-    const lng = parseFloat(station.position_lng);
+    // Process markers in batches to avoid blocking the main thread
+    const batchSize = 20;
+    let currentIndex = 0;
+    
+    function processBatch() {
+      const endIndex = Math.min(currentIndex + batchSize, stations.length);
+      
+      for (let i = currentIndex; i < endIndex; i++) {
+        const station = stations[i];
+        const lat = parseFloat(station.position_lat);
+        const lng = parseFloat(station.position_lng);
 
-    if (isNaN(lat) || isNaN(lng)) {
-      console.error("Invalid coordinates for station:", station);
-      return;
+        if (isNaN(lat) || isNaN(lng)) {
+          console.error("Invalid coordinates for station:", station);
+          continue;
+        }
+
+        const stationLocation = { lat, lng };
+        const marker = new google.maps.Marker({
+          position: stationLocation,
+          map: map,
+          title: station.name,
+          optimized: true,
+          animation: null,
+        });
+
+        marker.addListener("click", () => {
+          // Use requestAnimationFrame to avoid blocking the main thread
+          requestAnimationFrame(() => {
+            centerMapOnStation(station);
+            document.getElementById("stationSelect").value = station.number;
+
+            // Make sure UI updates with station data
+            if (window.UIModule) {
+              window.UIModule.showStationInfo(station);
+            } else {
+              console.warn("UIModule is not loaded!");
+            }
+
+            if (typeof openModal === 'function') {
+              openModal('station'); // Show the "Find station modal" when clicked on station marker
+            }
+
+            if (onMarkerClickCallback) onMarkerClickCallback(station);
+          });
+        });
+
+        markers.push(marker);
+      }
+      
+      currentIndex = endIndex;
+      
+      // If there are more markers to process, schedule the next batch
+      if (currentIndex < stations.length) {
+        // Use setTimeout with 0ms delay to yield to the main thread
+        setTimeout(processBatch, 0);
+      }
     }
+    
+    // Start processing the first batch
+    processBatch();
+  }
 
-    const stationLocation = { lat, lng };
-    const marker = new google.maps.Marker({
-      position: stationLocation,
-      map: map,
-      title: station.name,
-    });
-
-    marker.addListener("click", () => {
-      centerMapOnStation(station);
-      document.getElementById("stationSelect").value = station.number;
-
-      // 🔥 Make sure UI updates with station data
-      if (window.UIModule) {
-        window.UIModule.showStationInfo(station);
-      } else {
-        console.warn("UIModule is not loaded!");
-      }
-
-      if (typeof openModal === 'function') {
-        openModal('station'); // Show the "Find station modal" when clicked on station marker
-      }
-
-      if (onMarkerClickCallback) onMarkerClickCallback(station);
-    });
-
-    markers.push(marker);
-  });
-}
-
-    function setOnMarkerClick(callback) {
+  function setOnMarkerClick(callback) {
     onMarkerClickCallback = callback;
   }
 
@@ -172,43 +221,60 @@ function addMarkersToMap(stations) {
 
   // Show route directions between two points
   function showDirections(origin, destinationStation) {
-  return new Promise((resolve) => {
-    // 1. Clear previous directions completely
-    if (directionsRenderer) {
-      directionsRenderer.setMap(null);
-      directionsRenderer = null;
-    }
+    return new Promise((resolve) => {
+      // Use requestAnimationFrame to avoid blocking the main thread
+      requestAnimationFrame(() => {
+        // 1. Clear previous directions completely
+        if (directionsRenderer) {
+          directionsRenderer.setMap(null);
+          directionsRenderer = null;
+        }
 
-    // 2. Create fresh renderer instance
-    directionsRenderer = new google.maps.DirectionsRenderer({
-      suppressMarkers: false,
-      preserveViewport: true,
-      panel: document.getElementById("directions-steps")
+        // 2. Create fresh renderer instance
+        directionsRenderer = new google.maps.DirectionsRenderer({
+          suppressMarkers: false,
+          preserveViewport: true,
+        });
+
+        // 3. Attach to map
+        directionsRenderer.setMap(map);
+
+        // 4. Calculate route
+        directionsService.route({
+          origin: origin,
+          destination: {
+            lat: parseFloat(destinationStation.position_lat),
+            lng: parseFloat(destinationStation.position_lng)
+          },
+          travelMode: google.maps.TravelMode.WALKING
+        }, (response, status) => {
+          if (status === 'OK') {
+            directionsRenderer.setDirections(response);
+            
+            // Make the directions panel visible
+            const directionsPanel = document.getElementById("directions-panel");
+            if (directionsPanel) {
+              directionsPanel.style.display = "block";
+            } else {
+              console.warn("Directions panel element not found");
+            }
+            
+            // Display step-by-step directions in the UI
+            if (window.DirectionsModule && window.DirectionsModule.displayStepByStepDirections) {
+              window.DirectionsModule.displayStepByStepDirections(response);
+            } else {
+              console.warn("DirectionsModule.displayStepByStepDirections is not available");
+            }
+            
+            resolve();
+          } else {
+            console.error('Directions failed:', status);
+            resolve(); // Don't break the UI
+          }
+        });
+      });
     });
-
-    // 3. Attach to map
-    directionsRenderer.setMap(map);
-
-    // 4. Calculate route
-    directionsService.route({
-      origin: origin,
-      destination: {
-        lat: parseFloat(destinationStation.position_lat),
-        lng: parseFloat(destinationStation.position_lng)
-      },
-      travelMode: google.maps.TravelMode.WALKING
-    }, (response, status) => {
-      if (status === 'OK') {
-        directionsRenderer.setDirections(response);
-        document.getElementById("directions-panel").style.display = "block";
-        resolve();
-      } else {
-        console.error('Directions failed:', status);
-        resolve(); // Don't break the UI
-      }
-    });
-  });
-}
+  }
 
   // Set user location marker
   function setUserLocationMarker(position) {
@@ -226,17 +292,51 @@ function addMarkersToMap(stations) {
         strokeWeight: 2,
         strokeColor: "white",
       },
+      // Add these options to improve performance
+      optimized: true,
     });
 
     return userLocationMarker;
   }
 
   function resetMarkersToDefault() {
-    markers.forEach((marker) => {
-      // Reset marker appearance to default
+    // Process all markers at once instead of using recursive setTimeout
+    // This is more efficient and reduces violations
+    markers.forEach(marker => {
       marker.setIcon(null); // Default icon
       marker.setAnimation(null); // Stop any animations
     });
+  }
+
+  // Get stations currently visible in the map viewport
+  function getVisibleStations() {
+    if (!map || !markers || markers.length === 0) {
+      return [];
+    }
+
+    const bounds = map.getBounds();
+    if (!bounds) {
+      return [];
+    }
+
+    // Get all station data
+    const allStations = window.StationsModule?.getStationData() || [];
+    
+    // Filter stations that are within the current map bounds
+    const visibleStations = allStations.filter(station => {
+      const lat = parseFloat(station.position_lat);
+      const lng = parseFloat(station.position_lng);
+      
+      if (isNaN(lat) || isNaN(lng)) {
+        return false;
+      }
+      
+      const position = new google.maps.LatLng(lat, lng);
+      return bounds.contains(position);
+    });
+    
+    // Return just the station numbers
+    return visibleStations.map(station => station.number);
   }
 
   // Public API
@@ -247,8 +347,8 @@ function addMarkersToMap(stations) {
     centerOnStation: centerMapOnStation,
     showDirections: showDirections,
     setUserLocationMarker: setUserLocationMarker,
-    getMap: () => map,
-    setOnMarkerClick
+    setOnMarkerClick: setOnMarkerClick,
+    getVisibleStations: getVisibleStations,
   };
 })();
 
