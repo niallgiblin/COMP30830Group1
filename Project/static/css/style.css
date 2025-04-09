@@ -142,7 +142,113 @@ label {
   padding: 0 5px;
 }
 
-/* Station search and selection */
+/* Sidebar */
+
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 320px;
+  height: auto;
+  background-color: rgba(245, 245, 245, 0.8);
+  padding: 10px;
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+  z-index: 1500;
+  display: flex;
+  flex-direction: column;
+  border-top-right-radius: 10px;
+  border-bottom-right-radius: 10px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+
+}
+
+.banner {
+  background-image: url('/static/images/banner.jpeg');
+  background-size: cover;   
+  background-repeat: no-repeat;
+  background-position: center;
+  height: 120px;              
+  width: 100%;
+}
+
+/* Navigation */
+.navbar {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.navbar button {
+  display: flex;
+  align-items: center;
+  padding: 7px 7px;
+  background-color: transparent;
+  color: #333;
+  border: none;
+  font-size: 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, font-weight 0.2s ease;
+  text-align: left;
+  font-weight: bold;
+}
+
+/* Hover effect */
+.navbar button:hover {
+  background-color:  rgba(179, 45, 34, 0.9);         
+  transition: background-color 0.2s ease;
+  font-weight: bold;
+  color: white;
+}
+
+.navbar button.active {
+  background-color: #ddd;
+  font-weight: bold;
+}
+
+.modal{
+  max-width: 360px;
+  background-color: #f5f5f5;    
+  padding: 5px;
+  margin-top: 5px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  font-family: 'Segoe UI', sans-serif;
+  color: #333;
+  position: relative;
+  z-index: 1000;
+  display: none;
+  font-size: 14px;
+}
+
+.modal-close {
+  position: absolute;  
+  top: 2px;
+  right: 5px;
+  cursor: pointer;
+  color: grey;
+  font-size: 16px;
+  transition: color 0.2s ease;
+}
+
+.modal-close:hover {
+  color:  rgba(179, 45, 34, 0.9); 
+  font-weight: bold; 
+  transform: scale(1.1); 
+}
+
+.modal p {
+  font-size: 14px;
+  color: #333333;    
+  line-height: 1.5;
+  margin-top: 15px;
+  text-align: justify;
+  padding: 0 5px;
+}
+
+
+/* Modal 2: Find a Station*/
 .station-search {
   margin: 5px 0;
   margin-top: 15px;
@@ -156,6 +262,7 @@ label {
 
 .search-container {
   margin-bottom: 5px;
+  position: realative;
 }
 
 #stationSearch {
@@ -186,7 +293,9 @@ label {
 
 #stationInfo p {
   margin: 2px 0;
+  padding: 0px;
 }
+
 
 /* Directions panel */
 #directions-panel {
@@ -248,6 +357,33 @@ label {
   font-size: 14px;
 }
 
+/* Modal 3: Prediction */
+
+#prediction-ml {
+  padding: 0 5px;
+}
+.select-ml {
+  padding: 5px;
+  display: flex;
+  flex-direction: column; 
+}
+.select-ml label {
+  font-weight: 600;
+  font-size: 14px;
+  color: #333; 
+  margin-bottom: 6px;
+  padding-left: 2px;
+}
+#result {
+  position: relative;
+  z-index: 90;
+  background: none;
+  padding: 20px;
+  font-weight: bold;
+}
+
+
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   #controls {
@@ -273,122 +409,3 @@ label {
   }
 }
 
-/* Modal 3: Prediction */
-#result {
-  position: relative;
-  z-index: 90;
-  background: none;
-}
-
-/* Sidebar */
-
-
-.sidebar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 300px;
-  height: auto;
-  background-color: rgba(245, 245, 245, 0.8);
-  padding: 10px;
-  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
-  z-index: 1500;
-  display: flex;
-  flex-direction: column;
-
-}
-
-.banner {
-  background-image: url('/static/images/banner.jpeg');
-  background-size: cover;   
-  background-repeat: no-repeat;
-  background-position: center;
-  height: 115px;              
-  width: 100%;
-}
-
-/* Navigation */
-.navbar {
-  margin-top: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.navbar button {
-  display: flex;
-  align-items: center;
-  padding: 7px 7px;
-  background-color: transparent;
-  color: #333;
-  border: none;
-  font-size: 16px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background-color 0.2s ease, font-weight 0.2s ease;
-  text-align: left;
-  font-weight: bold;
-}
-
-/* Hover effect */
-.navbar button:hover {
-  background-color:  rgba(179, 45, 34, 0.9);         
-  transition: background-color 0.2s ease;
-  font-weight: bold;
-  color: white;
-}
-
-.navbar button.active {
-  background-color: #ddd;
-  font-weight: bold;
-}
-
-.modal-container {
-  position: relative;
-  margin-top: 10px; 
-  padding: 10px;
-  z-index: 1;
-}
-
-.modal{
-  max-width: 360px;
-  background-color: #f5f5f5;    
-  padding: 5px;
-  margin-top: 5px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  font-family: 'Segoe UI', sans-serif;
-  color: #333;
-  position: relative;
-  z-index: 1000;
-  display: none;
-  font-size: 14px;
-}
-
-.modal-close {
-  position: absolute;  
-  top: 2px;
-  right: 5px;
-  cursor: pointer;
-  color: grey;
-  font-size: 16px;
-  transition: color 0.2s ease;
-}
-
-.modal-close:hover {
-  color:  rgba(179, 45, 34, 0.9); 
-  font-weight: bold; 
-  transform: scale(1.1); 
-}
-
-.modal p {
-  font-size: 14px;
-  color: #333333;    
-  line-height: 1.5;
-  margin-top: 20px;
-  text-align: justify;
-  padding: 10px 0;
-}
-
-#stationInfo p {
-  padding: 0px;
-}

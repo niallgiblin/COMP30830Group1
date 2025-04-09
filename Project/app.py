@@ -153,7 +153,7 @@ def get_weather():
 
 ### PREDICTION
 def fetch_openweather_forecast(datetime):
-    # Stub: Replace with code to fetch weather forecast from OpenWeather
+    # Pulling 5-day weather forecast from openweather
     api_key = os.environ.get('OPENWEATHER_API_KEY')
     url = (f"https://api.openweathermap.org/data/2.5/forecast?q=Dublin&appid={api_key}&units=metric"
         )
@@ -196,13 +196,13 @@ def predict():
         date = request.args.get("date")
         time = request.args.get("time")
         station_id = request.args.get("station_id") 
+        dt = datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M:%S")  # Combine date and time into a single datetime object
         if not date or not time or not station_id:
             return jsonify({"error": "Missing date, time, or station_id parameter"}), 400
         if int(station_id) > 117:
             return jsonify({"error": f"Invalid station_id: {station_id}"}), 400
-
-        # Combine date and time into a single datetime object
-        dt = datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M:%S")
+        if dt < datetime.now():
+            return jsonify({"error": f"Prediction only for future time"}), 400
         hour = dt.hour
         day_of_week = dt.weekday()
         station_hour = f"{str(station_id)}_{hour}"

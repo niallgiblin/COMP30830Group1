@@ -23,10 +23,9 @@
     <!-- Modal 1: About us-->
       <div id="about" class="modal">
         <span class="modal-close" onclick="closeModal('about')">&times;</span>
-        <p>We are Dublinbikes here you can blabla bla cycling in Dublin offers a delightful blend of urban exploration and scenic beauty. 
-            The city's compact nature, coupled with over 190 km of cycle paths, makes it ideal for both novice and experienced cyclists. 
-            Popular routes include the Grand Canal Greenway, providing a peaceful ride along the water, and the Royal Canal Greenway, which offers a journey through history. 
-            hether you're commuting or exploring, Dublin's cycling infrastructure caters to al</p>
+        <p>Hello! We are Dublinbikes!</p>
+        <p>This web application displays real-time occupancy and weather information for DublinBikes stations across the city. 
+            Using live station updates, weather forecasts and historical data,  our platform helps users make smarter decisions when planning their journeys by bike. </p>
       </div>
     
     <!-- Modal 2: Find a station-->
@@ -61,21 +60,21 @@
       <!-- Modal 3: Find bikes prediction -->
       <div id="prediction" class="modal">
         <span class="modal-close" onclick="closeModal('prediction')">&times;</span>
-        <p>Prediction of how many bikes will be available on a date using machine-learning model based on live weather data</p>
+        <p>Get bike availability forecasts for a selected station and time, powered by machine learning and real-time weather data</p>
                 <!-- Prediction-->  
-            <div id ="prediction-ml">
-                <div class = "select">
+        <div id ="prediction-ml">
+                <div class = "select-ml">
                 <label for="date">Select Date:</label>
                 <input type="date" id="date" required></div>
-                <div class = "select">
+                <div class = "select-ml">
                 <label for="time">Select Time:</label>
                 <input type="time" id="time" required></div>
-                <div class = "select">
+                <div class = "select-ml">
                 <label for="station_id">Select Station ID:</label>
                 <input type="number" id="station_id" required></div>
                 <button class="button" onclick="predict()">Predict</button> 
                 <div id="result"></div></div>
-      </div>
+        </div>
       </div>
 
     </div>
