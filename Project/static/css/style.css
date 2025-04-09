@@ -224,7 +224,7 @@ p {
 }
 
 .modal{
-  max-width: 360px;
+  max-width: 450px;
   background-color: #f5f5f5;    
   padding: 5px;
   margin-top: 5px;
@@ -235,6 +235,10 @@ p {
   z-index: 1000;
   display: none;
   font-size: 14px;
+  overflow-y: auto;
+  max-height: 80vh;
+  padding-bottom: 30px;
+  border-radius: 5px;
 }
 
 .modal-close {
@@ -297,29 +301,38 @@ p {
   font-size: 14px;
 }
 
-/* Prediction dropdown styling */
-#predictionStationSelect {
+/* Charts styling */
+.charts-container {
+  margin-top: 15px;
+  padding: 10px;
+  background-color: #f9f9f9;
+  border-radius: 6px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  max-height: none;
+  overflow-y: visible;
   width: 100%;
-  padding: 8px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  background-color: white;
-  font-size: 14px;
 }
 
-/* Prediction search box styling */
-#predictionStationSearch {
-  width: 100%;
-  padding: 8px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
+.charts-container h4 {
+  margin: 10px 0 15px 0;
+  font-size: 16px;
+  color: #333;
+  font-weight: bold;
+  text-align: center;
 }
 
-#predictionStationSearch::placeholder {
-  font-size: 14px;
-  color: #999;
+.charts-container canvas {
+  width: 100% !important;
+  height: 250px !important;
+  margin-bottom: 20px;
+  display: block;
 }
+
+/* Remove individual chart titles */
+.chart-title {
+  display: none;
+}
+
 
 /* Station info panel */
 #stationInfo {
@@ -328,6 +341,7 @@ p {
   background-color: #f5f5f5;
   border-radius: 6px;
   margin-top: 15px;
+  padding: 10px;
 }
 
 #stationInfo p {
@@ -421,7 +435,34 @@ p {
   font-weight: bold;
 }
 
+/* Prediction dropdown styling */
+#predictionStationSelect {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: white;
+  font-size: 14px;
+}
 
+/* Prediction search box styling */
+#predictionStationSearch {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+#predictionStationSearch::placeholder {
+  font-size: 14px;
+  color: #999;
+}
+
+#predictbutton-container{
+  text-align: right;
+  margin-right: 15px;
+}
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
@@ -448,3 +489,21 @@ p {
   }
 }
 
+/* Responsive adjustments for modals */
+@media (max-height: 700px) {
+  .modal {
+    max-height: 70vh;
+  }
+}
+
+@media (max-height: 600px) {
+  .modal {
+    max-height: 60vh;
+  }
+}
+
+@media (max-height: 500px) {
+  .modal {
+    max-height: 50vh;
+  }
+}
