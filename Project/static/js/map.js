@@ -91,43 +91,44 @@ const MapModule = (function () {
 
   // Reset map to default view
   function resetToDefaultView() {
-    // Reset map position and zoom
-    map.setCenter(DEFAULT_MAP_CENTER);
-    map.setZoom(DEFAULT_ZOOM);
+    // Batch all map updates in a single frame
+    requestAnimationFrame(() => {
+      // Reset map position and zoom
+      map.setCenter(DEFAULT_MAP_CENTER);
+      map.setZoom(DEFAULT_ZOOM);
 
-    // Clear any directions
-    if (directionsRenderer) {
-      directionsRenderer.setMap(null);
-    }
+      // Clear directions
+      if (directionsRenderer) {
+        directionsRenderer.setMap(null);
+      }
 
-    // Remove user location marker
-    if (userLocationMarker) {
-      userLocationMarker.setMap(null);
-      userLocationMarker = null;
-    }
+      // Remove user location marker
+      if (userLocationMarker) {
+        userLocationMarker.setMap(null);
+        userLocationMarker = null;
+      }
 
-    // Reset station selection
-    document.getElementById("stationSelect").value = "";
+      // Reset station selection
+      document.getElementById("stationSelect").value = "";
+      
+      // Hide UI elements
+      document.getElementById("stationInfo").style.display = "none";
+      document.getElementById("directions-panel").style.display = "none";
+      
+      // Hide reset button
+      const resetBtn = document.getElementById("resetBtn");
+      if (resetBtn) {
+        resetBtn.style.display = "none";
+      }
 
-    // Hide station info
-    document.getElementById("stationInfo").style.display = "none";
+      // Close modal
+      if (typeof window.closeModal === 'function') {
+        window.closeModal('station');
+      }
 
-    // Hide directions panel
-    document.getElementById("directions-panel").style.display = "none";
-
-    // Close the Find a Station modal
-    if (typeof window.closeModal === 'function') {
-      window.closeModal('station');
-    }
-
-    // Reset all markers to default appearance
-    resetMarkersToDefault();
-
-    // Hide reset button after reset
-    const resetBtn = document.getElementById("resetBtn");
-    if (resetBtn) {
-      resetBtn.style.display = "none";
-    }
+      // Reset markers
+      resetMarkersToDefault();
+    });
   }
 
   // Add station markers to the map
@@ -136,11 +137,12 @@ const MapModule = (function () {
     markers.forEach(marker => marker.setMap(null));
     markers = [];
 
-    // Process markers in batches to avoid blocking the main thread
-    const batchSize = 20;
+    // Process markers in smaller batches to reduce handler time
+    const batchSize = 10; // Reduced from 20 to 10
     let currentIndex = 0;
     
     function processBatch() {
+      const startTime = performance.now();
       const endIndex = Math.min(currentIndex + batchSize, stations.length);
       
       for (let i = currentIndex; i < endIndex; i++) {
@@ -163,22 +165,24 @@ const MapModule = (function () {
         });
 
         marker.addListener("click", () => {
-          // Use requestAnimationFrame to avoid blocking the main thread
+          // Split the work into multiple frames
           requestAnimationFrame(() => {
             centerMapOnStation(station);
             document.getElementById("stationSelect").value = station.number;
+          });
 
-            // Make sure UI updates with station data
+          requestAnimationFrame(() => {
             if (window.UIModule) {
               window.UIModule.showStationInfo(station);
             } else {
               console.warn("UIModule is not loaded!");
             }
+          });
 
+          requestAnimationFrame(() => {
             if (typeof openModal === 'function') {
-              openModal('station'); // Show the "Find station modal" when clicked on station marker
+              openModal('station');
             }
-
             if (onMarkerClickCallback) onMarkerClickCallback(station);
           });
         });
@@ -190,8 +194,8 @@ const MapModule = (function () {
       
       // If there are more markers to process, schedule the next batch
       if (currentIndex < stations.length) {
-        // Use setTimeout with 0ms delay to yield to the main thread
-        setTimeout(processBatch, 0);
+        // Use a small delay to allow the main thread to breathe
+        setTimeout(processBatch, 16); // ~60fps
       }
     }
     
@@ -300,8 +304,7 @@ const MapModule = (function () {
   }
 
   function resetMarkersToDefault() {
-    // Process all markers at once instead of using recursive setTimeout
-    // This is more efficient and reduces violations
+    // Process all markers in a single frame for reset
     markers.forEach(marker => {
       marker.setIcon(null); // Default icon
       marker.setAnimation(null); // Stop any animations
@@ -339,6 +342,13 @@ const MapModule = (function () {
     return visibleStations.map(station => station.number);
   }
 
+  function clearDirections() {
+    if (directionsRenderer) {
+      directionsRenderer.setMap(null);
+      directionsRenderer = null;
+    }
+  }
+
   // Public API
   return {
     init: initMap,
@@ -349,6 +359,7 @@ const MapModule = (function () {
     setUserLocationMarker: setUserLocationMarker,
     setOnMarkerClick: setOnMarkerClick,
     getVisibleStations: getVisibleStations,
+    clearDirections: clearDirections
   };
 })();
 

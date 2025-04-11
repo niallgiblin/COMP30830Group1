@@ -167,8 +167,6 @@ const UIModule = (function () {
 
   // Set up event listeners
   function initializeEventListeners() {
-    console.log("Initializing UI event listeners");
-    
     // Show reset button when finding nearest bike or selecting a station
     const findBikeBtn = document.getElementById("findNearestBikeBtn");
     if (findBikeBtn) {

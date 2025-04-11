@@ -22,8 +22,6 @@ const StationsModule = (function () {
         throw new Error("No station data available");
       }
 
-      console.log("✅ Stations successfully loaded:", stationData.length);
-
       // Add markers for initially visible stations only
       if (window.MapModule) {
         const initialStations = stationData.slice(0, 50);
@@ -142,12 +140,9 @@ const StationsModule = (function () {
 
   async function loadStationsAvailability(stationIds) {
     if (!stationIds || stationIds.length === 0) {
-      console.log("No station IDs provided for availability check");
       return [];
     }
     
-    console.log(`Fetching availability for ${stationIds.length} stations...`);
-
     // Filter out stations that already have valid cached data
     const stationsToFetch = stationIds.filter(id => {
       const cached = AVAILABILITY_CACHE[id];
@@ -155,11 +150,8 @@ const StationsModule = (function () {
     });
     
     if (stationsToFetch.length === 0) {
-      console.log("All stations have valid cached data, no fetch needed");
       return stationIds.map(id => AVAILABILITY_CACHE[id]?.data);
     }
-    
-    console.log(`Actually fetching ${stationsToFetch.length} stations (others cached)`);
     
     // Process in batches to avoid overwhelming the server
     const batchSize = 5;
@@ -199,7 +191,6 @@ const StationsModule = (function () {
         });
         
         if (stationsToRefresh.length > 0) {
-          console.log(`Refreshing ${stationsToRefresh.length} stations with expired cache`);
           loadStationsAvailability(stationsToRefresh);
         }
       }
@@ -229,10 +220,8 @@ const StationsModule = (function () {
 
   // Find the nearest station with available bikes using cached data
   async function findNearestAvailableBike() {
-    console.log("findNearestAvailableBike() started");
     try {
       const userLocation = await getUserLocation();
-      console.log("User Location:", userLocation);
 
       if (!stationData || stationData.length === 0) {
         throw new Error("No stations available.");
@@ -268,7 +257,6 @@ const StationsModule = (function () {
 
       // Get the closest station with available bikes
       const nearestStation = availableStations[0];
-      console.log("Nearest available station:", nearestStation);
 
       // Center map on the station
       if (window.MapModule) {

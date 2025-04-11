@@ -4,21 +4,17 @@ const ChartsModule = (function() {
   let usageChart = null;
   let standsChart = null;
   let currentStationId = null;
-  let updateInterval = null;
-  const REFRESH_INTERVAL = 30000; // Refresh every 30 seconds
+  
+  // Data cache
+  const dataCache = new Map();
+  const CACHE_EXPIRY = 5 * 60 * 1000; // 5 minutes cache expiry
   
   // Initialize charts
   function initCharts() {
-    console.log("Initializing charts");
-    
-    // Get chart canvases
     const usageCanvas = document.getElementById("usageChart");
     const standsCanvas = document.getElementById("busyTimesChart");
     
-    if (!usageCanvas || !standsCanvas) {
-      console.error("Chart canvases not found");
-      return;
-    }
+    if (!usageCanvas || !standsCanvas) return;
     
     // Create placeholder charts
     createUsageChart(usageCanvas, {
@@ -29,18 +25,35 @@ const ChartsModule = (function() {
       labels: [],
       values: []
     });
-    
-    console.log("Charts initialized");
   }
-  
-  // Create usage pattern chart
-  function createUsageChart(canvas, data) {
-    // Destroy existing chart if it exists
-    if (usageChart) {
-      usageChart.destroy();
+
+  // Show loading state
+  function showLoadingState() {
+    const usageCanvas = document.getElementById("usageChart");
+    const standsCanvas = document.getElementById("busyTimesChart");
+    
+    if (usageCanvas) {
+      createUsageChart(usageCanvas, {
+        labels: ['Loading...'],
+        values: [0]
+      });
     }
     
-    // Create new chart
+    if (standsCanvas) {
+      createStandsChart(standsCanvas, {
+        labels: ['Loading...'],
+        values: [0]
+      });
+    }
+  }
+
+  // Create usage pattern chart
+  function createUsageChart(canvas, data) {
+    if (usageChart) {
+      usageChart.destroy();
+      usageChart = null;
+    }
+
     usageChart = new Chart(canvas, {
       type: 'line',
       data: {
@@ -52,18 +65,22 @@ const ChartsModule = (function() {
           backgroundColor: 'rgba(66, 133, 244, 0.1)',
           borderWidth: 2,
           tension: 0.3,
-          fill: true
+          fill: true,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          spanGaps: true // Enable spanning gaps between points
         }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        animation: false,
         layout: {
           padding: {
             left: 10,
             right: 10,
             top: 10,
-            bottom: 10
+            bottom: 20
           }
         },
         plugins: {
@@ -113,17 +130,28 @@ const ChartsModule = (function() {
             }
           },
           x: {
+            type: 'category',
             title: {
-              display: false
+              display: true,
+              text: 'Time',
+              font: {
+                size: 14,
+                weight: 'bold'
+              },
+              padding: {top: 10}
             },
-            min: '05:00',
-            max: '23:00',
             ticks: {
               font: {
                 size: 12
               },
               padding: 5,
-              maxRotation: 0
+              maxRotation: 45,
+              autoSkip: false,
+              callback: function(value, index) {
+                const targetHours = [5, 9, 12, 16, 19, 23];
+                const hour = index + 5;
+                return targetHours.includes(hour) ? `${hour.toString().padStart(2, '0')}:00` : '';
+              }
             },
             grid: {
               display: false
@@ -136,12 +164,11 @@ const ChartsModule = (function() {
   
   // Create stands availability chart
   function createStandsChart(canvas, data) {
-    // Destroy existing chart if it exists
     if (standsChart) {
       standsChart.destroy();
+      standsChart = null;
     }
-    
-    // Create new chart
+
     standsChart = new Chart(canvas, {
       type: 'line',
       data: {
@@ -153,18 +180,21 @@ const ChartsModule = (function() {
           backgroundColor: 'rgba(52, 168, 83, 0.1)',
           borderWidth: 2,
           tension: 0.3,
-          fill: true
+          fill: true,
+          pointRadius: 3,
+          pointHoverRadius: 5
         }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        animation: false,
         layout: {
           padding: {
             left: 10,
             right: 10,
             top: 10,
-            bottom: 10
+            bottom: 20
           }
         },
         plugins: {
@@ -214,17 +244,28 @@ const ChartsModule = (function() {
             }
           },
           x: {
+            type: 'category',
             title: {
-              display: false
+              display: true,
+              text: 'Time',
+              font: {
+                size: 14,
+                weight: 'bold'
+              },
+              padding: {top: 10}
             },
-            min: '05:00',
-            max: '23:00',
             ticks: {
               font: {
                 size: 12
               },
               padding: 5,
-              maxRotation: 0
+              maxRotation: 45,
+              autoSkip: false,
+              callback: function(value, index) {
+                const targetHours = [5, 9, 12, 16, 19, 23];
+                const hour = index + 5;
+                return targetHours.includes(hour) ? `${hour.toString().padStart(2, '0')}:00` : '';
+              }
             },
             grid: {
               display: false
@@ -234,104 +275,140 @@ const ChartsModule = (function() {
       }
     });
   }
-  
-  // Update charts with station data
-  function updateCharts(stationId) {
-    console.log(`Updating charts for station ${stationId}`);
+
+  // Get cached data if available and not expired
+  function getCachedData(stationId) {
+    const cached = dataCache.get(stationId);
+    if (cached && Date.now() - cached.timestamp < CACHE_EXPIRY) {
+      return cached.data;
+    }
+    return null;
+  }
+
+  // Update cache with new data
+  function updateCache(stationId, data) {
+    dataCache.set(stationId, {
+      data: data,
+      timestamp: Date.now()
+    });
+  }
+
+  // Fetch station data
+  function fetchStationData(stationId) {
+    const cachedData = getCachedData(stationId);
     
-    // Clear existing update interval if any
-    if (updateInterval) {
-      clearInterval(updateInterval);
+    // If we have valid cached data, use it immediately
+    if (cachedData) {
+      updateChartsWithData(stationId, cachedData);
+      return;
     }
     
-    // Store current station ID
-    currentStationId = stationId;
+    // Show loading state while fetching
+    showLoadingState();
     
-    // Show loading state
+    // Fetch fresh data
+    fetch(`/api/station/${stationId}/history`)
+      .then(response => {
+        if (!response.ok) throw new Error('Network response was not ok');
+        return response.json();
+      })
+      .then(data => {
+        if (!Array.isArray(data) || data.length === 0) {
+          throw new Error('No prediction data received');
+        }
+        
+        // Update cache with fresh data
+        updateCache(stationId, data);
+        
+        // Update the charts
+        updateChartsWithData(stationId, data);
+      })
+      .catch(() => {
+        // Show error state without logging
+        const usageCanvas = document.getElementById("usageChart");
+        const standsCanvas = document.getElementById("busyTimesChart");
+        
+        if (usageCanvas) {
+          createUsageChart(usageCanvas, {
+            labels: ['Error loading data'],
+            values: [0]
+          });
+        }
+        
+        if (standsCanvas) {
+          createStandsChart(standsCanvas, {
+            labels: ['Error loading data'],
+            values: [0]
+          });
+        }
+      });
+  }
+
+  // Update charts with data
+  function updateChartsWithData(stationId, data) {
     const usageCanvas = document.getElementById("usageChart");
     const standsCanvas = document.getElementById("busyTimesChart");
     
+    if (!usageCanvas || !standsCanvas) return;
+    
+    // Generate all time slots from 05:00 to 23:00
+    const allTimeSlots = [];
+    for (let hour = 5; hour <= 23; hour++) {
+        allTimeSlots.push(`${hour.toString().padStart(2, '0')}:00`);
+    }
+    
+    // Create a map of hours to predictions
+    const predictionMap = new Map();
+    data.forEach(prediction => {
+        const hour = prediction.timestamp.split(':')[0];
+        predictionMap.set(hour, prediction);
+    });
+    
+    // Generate values for each hour
+    const bikeValues = allTimeSlots.map(timeSlot => {
+        const hour = timeSlot.split(':')[0];
+        return predictionMap.get(hour)?.available_bikes ?? null;
+    });
+    
+    const standValues = allTimeSlots.map(timeSlot => {
+        const hour = timeSlot.split(':')[0];
+        return predictionMap.get(hour)?.available_stands ?? null;
+    });
+    
+    // Update charts
     if (usageCanvas) {
-      createUsageChart(usageCanvas, {
-        labels: ['Loading...'],
-        values: [0]
-      });
+        createUsageChart(usageCanvas, {
+            labels: allTimeSlots,
+            values: bikeValues
+        });
     }
     
     if (standsCanvas) {
-      createStandsChart(standsCanvas, {
-        labels: ['Loading...'],
-        values: [0]
-      });
-    }
-    
-    // Function to fetch and update data
-    const fetchAndUpdateData = () => {
-      // Fetch historical data for the station
-      fetch(`/api/station_history/${stationId}`)
-        .then(response => {
-          if (!response.ok) {
-            throw new Error('Network response was not ok');
-          }
-          return response.json();
-        })
-        .then(data => {
-          console.log("Received station history data:", data);
-          
-          if (!data.usagePattern) {
-            throw new Error('No usage pattern data received');
-          }
-          
-          // Update usage chart
-          if (usageCanvas) {
-            createUsageChart(usageCanvas, {
-              labels: data.usagePattern.labels,
-              values: data.usagePattern.available_bikes
-            });
-          }
-          
-          // Update stands chart
-          if (standsCanvas) {
-            createStandsChart(standsCanvas, {
-              labels: data.usagePattern.labels,
-              values: data.usagePattern.available_stands
-            });
-          }
-
-          // Update last refresh time if provided
-          if (data.lastUpdate) {
-            const lastUpdateEl = document.getElementById('lastUpdate');
-            if (lastUpdateEl) {
-              lastUpdateEl.textContent = `Last updated: ${data.lastUpdate}`;
-            }
-          }
-        })
-        .catch(error => {
-          console.error("Error fetching station history:", error);
-          
-          // Create empty charts with placeholder data
-          if (usageCanvas) {
-            createUsageChart(usageCanvas, {
-              labels: ['05:00', '08:00', '11:00', '14:00', '17:00', '20:00', '23:00'],
-              values: [5, 8, 12, 15, 10, 7, 4]
-            });
-          }
-          
-          if (standsCanvas) {
-            createStandsChart(standsCanvas, {
-              labels: ['05:00', '08:00', '11:00', '14:00', '17:00', '20:00', '23:00'],
-              values: [15, 12, 8, 5, 10, 13, 16]
-            });
-          }
+        createStandsChart(standsCanvas, {
+            labels: allTimeSlots,
+            values: standValues
         });
-    };
-    
-    // Fetch data immediately
-    fetchAndUpdateData();
-    
-    // Set up interval for regular updates
-    updateInterval = setInterval(fetchAndUpdateData, REFRESH_INTERVAL);
+    }
   }
+  
+  // Debounce function to prevent multiple rapid requests
+  function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+    };
+  }
+  
+  // Update charts with station data
+  const updateCharts = debounce(function(stationId) {
+    currentStationId = stationId;
+    fetchStationData(stationId);
+  }, 300);
   
   // Public API
   return {

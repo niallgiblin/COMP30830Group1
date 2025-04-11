@@ -1,11 +1,11 @@
 // Initialize prediction dropdown with station names
 function initPredictionDropdown() {
-    console.log("Initializing prediction dropdown");
+    // console.log("Initializing prediction dropdown");
     const predictionDropdown = document.getElementById("predictionStationSelect");
     const stationSelect = document.getElementById("stationSelect");
     
     if (!predictionDropdown || !stationSelect) {
-        console.error("Prediction dropdown or station select not found");
+        // console.error("Prediction dropdown or station select not found");
         return;
     }
     
@@ -23,8 +23,6 @@ function initPredictionDropdown() {
     
     // Setup search functionality for prediction dropdown
     setupPredictionStationSearch();
-    
-    console.log("Prediction dropdown initialized");
 }
 
 // Setup search functionality for prediction dropdown
@@ -33,7 +31,7 @@ function setupPredictionStationSearch() {
     const dropdown = document.getElementById("predictionStationSelect");
 
     if (!searchInput || !dropdown) {
-        console.error("Prediction search input or dropdown not found");
+        // console.error("Prediction search input or dropdown not found");
         return;
     }
 
@@ -94,7 +92,7 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 
 function predict() {
-    console.log("Predict button clicked");
+    // console.log("Predict button clicked");
     const date = document.getElementById("date").value;
     const time = document.getElementById("time").value;
     const stationSelect = document.getElementById("predictionStationSelect");
@@ -111,17 +109,17 @@ function predict() {
     const formattedTime = `${time}:00`;
     
     //Log
-    console.log(`/predict?date=${date}&time=${formattedTime}&station_id=${station_id}`);
+    // console.log(`/predict?date=${date}&time=${formattedTime}&station_id=${station_id}`);
 
     // Send GET request to Flask API
     fetch(`/predict?date=${date}&time=${formattedTime}&station_id=${station_id}`, {
         method: "GET"
     })
         .then(response => {
-            console.log("Raw response:", response);
+            // console.log("Raw response:", response);
             return response.json()})
         .then(data => {
-            console.log("Prediction response:", data);
+            // console.log("Prediction response:", data);
             if (data.predicted_available_bikes !== undefined) {
                 resultDiv.innerHTML = `Predicted Available Bikes: ${Math.round(data.predicted_available_bikes)}`;
             } else {
@@ -129,7 +127,7 @@ function predict() {
             }
         })
         .catch(error => {
-            console.error("Fetch error:", error);
+            // console.error("Fetch error:", error);
             resultDiv.innerHTML = `Error: ${error.message}`;
         });
 }

@@ -14,8 +14,6 @@ const WeatherModule = (function () {
   // Fetch fresh weather data
   async function fetchWeather() {
     try {
-      console.log("Fetching fresh weather data");
-
       // Add timestamp to prevent caching
       const timestamp = Date.now();
       const response = await fetch(`/api/weather?_=${timestamp}`);

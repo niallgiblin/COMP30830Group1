@@ -7,9 +7,8 @@ const DirectionsModule = (function () {
       .addEventListener("click", () => {
         document.getElementById("directions-panel").style.display = "none";
         // Notify map module to clear directions
-        const directionsRenderer = MapModule.getMap().directionsRenderer;
-        if (directionsRenderer) {
-          directionsRenderer.setMap(null);
+        if (window.MapModule && window.MapModule.clearDirections) {
+          window.MapModule.clearDirections();
         }
       });
   }
