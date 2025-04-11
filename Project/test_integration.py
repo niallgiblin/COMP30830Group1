@@ -1,23 +1,36 @@
 import unittest
 import sys
 import os
-from sqlalchemy import text
-
-# Add the Project directory to the Python path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from Project.app import app, connect_to_db, get_db
-from datetime import datetime, timezone
+from datetime import datetime
 import json
 from dotenv import load_dotenv
-import pandas as pd
 import pickle
+import mysql.connector
+
+# Add the parent directory to the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from Project.app import app
+
+# Load environment variables
+load_dotenv()
+
+# Test database configuration
+TEST_DB_CONFIG = {
+    'host': os.getenv('DB_HOST', '127.0.0.1'),
+    'user': os.getenv('DB_USER', 'root'),
+    'password': os.getenv('DB_PASSWORD', ''),
+    'database': os.getenv('DB_NAME', 'local_databasejcdecaux'),
+    'port': os.getenv('DB_PORT', '3306')
+}
 
 class TestBikeAppIntegration(unittest.TestCase):
     def setUp(self):
         """Set up test client and other test variables"""
-        load_dotenv()  # Load environment variables
         self.app = app.test_client()
         self.app.testing = True
+        
+        # Override app's database config for testing
+        app.config['TEST_DB_CONFIG'] = TEST_DB_CONFIG
         
         # Load the ML model
         model_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'bike_availability_model.pkl')
@@ -27,96 +40,131 @@ class TestBikeAppIntegration(unittest.TestCase):
     def test_database_connection(self):
         """Test database connection and basic query"""
         with app.app_context():
-            db = get_db()
-            self.assertIsNotNone(db, "Database connection should be established")
+            # Use test database config
+            conn = mysql.connector.connect(**TEST_DB_CONFIG)
+            self.assertIsNotNone(conn)
             
-            # Test a simple query
-            try:
-                with db.connect() as conn:
-                    result = conn.execute(text("SELECT 1")).scalar()
-                    self.assertEqual(result, 1, "Basic database query should work")
-            except Exception as e:
-                self.fail(f"Database query failed: {str(e)}")
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT 1")
+                result = cursor.fetchone()
+                self.assertEqual(result[0], 1)
+            
+            conn.close()
 
     def test_prediction_with_weather_integration(self):
         """Test the integration between weather API and prediction endpoint"""
-        # Test parameters
+        future_time = datetime.now().replace(hour=14, minute=0, second=0, microsecond=0)
         test_params = {
-            'date': datetime.now().strftime('%Y-%m-%d'),
-            'time': '12:00:00',
+            'date': future_time.strftime('%Y-%m-%d'),
+            'time': future_time.strftime('%H:%M:%S'),
             'station_id': '1'
         }
 
-        # Make request to prediction endpoint
         response = self.app.get('/predict', query_string=test_params)
+        if response.status_code != 200:
+            print(f"Prediction error: {response.data.decode()}")
+        self.assertEqual(response.status_code, 200)
+        
         data = json.loads(response.data)
-
-        # Assertions
-        self.assertEqual(response.status_code, 200, "Prediction endpoint should return 200")
-        self.assertIn('predicted_available_bikes', data, "Response should contain prediction")
-        self.assertIsInstance(data['predicted_available_bikes'], (int, float), "Prediction should be a number")
+        self.assertIn('predicted_available_bikes', data)
+        self.assertIsInstance(data['predicted_available_bikes'], (int, float))
 
     def test_station_availability_integration(self):
         """Test the integration between station data and availability endpoint"""
         # First get all stations
         stations_response = self.app.get('/stations')
-        stations_data = json.loads(stations_response.data)
+        self.assertEqual(stations_response.status_code, 200)
         
-        self.assertEqual(stations_response.status_code, 200, "Stations endpoint should return 200")
-        self.assertIn('stations', stations_data, "Response should contain stations data")
+        stations_data = json.loads(stations_response.data)
+        self.assertIn('stations', stations_data)
         
         if stations_data['stations']:
             # Test availability for the first station
             station_id = stations_data['stations'][0]['number']
             availability_response = self.app.get(f'/available/{station_id}')
-            availability_data = json.loads(availability_response.data)
+            self.assertEqual(availability_response.status_code, 200)
             
-            self.assertEqual(availability_response.status_code, 200, "Availability endpoint should return 200")
-            self.assertIn('available_bikes', availability_data, "Response should contain available bikes")
-            self.assertIn('available_bike_stands', availability_data, "Response should contain available stands")
+            availability_data = json.loads(availability_response.data)
+            self.assertIn('available_bikes', availability_data)
+            self.assertIn('available_bike_stands', availability_data)
 
     def test_weather_station_prediction_flow(self):
         """Test the complete flow from weather data to prediction"""
-        # Get weather data
         weather_response = self.app.get('/api/weather')
+        self.assertEqual(weather_response.status_code, 200)
+        
         weather_data = json.loads(weather_response.data)
+        self.assertIn('main', weather_data)
         
-        self.assertEqual(weather_response.status_code, 200, "Weather endpoint should return 200")
-        
-        # Check for error response
-        if 'error' in weather_data:
-            self.fail(f"Weather API error: {weather_data['error']}")
-            
-        self.assertIn('main', weather_data, "Weather response should contain main data")
-        
-        # Use weather data to make a prediction
+        future_time = datetime.now().replace(hour=14, minute=0, second=0, microsecond=0)
         test_params = {
-            'date': datetime.now().strftime('%Y-%m-%d'),
-            'time': '12:00:00',
+            'date': future_time.strftime('%Y-%m-%d'),
+            'time': future_time.strftime('%H:%M:%S'),
             'station_id': '1'
         }
         
         prediction_response = self.app.get('/predict', query_string=test_params)
-        prediction_data = json.loads(prediction_response.data)
+        if prediction_response.status_code != 200:
+            print(f"Prediction error: {prediction_response.data.decode()}")
+        self.assertEqual(prediction_response.status_code, 200)
         
-        self.assertEqual(prediction_response.status_code, 200, "Prediction should work with weather data")
-        self.assertIn('predicted_available_bikes', prediction_data, "Prediction should be returned")
+        prediction_data = json.loads(prediction_response.data)
+        self.assertIn('predicted_available_bikes', prediction_data)
 
     def test_station_history_integration(self):
         """Test the integration of station history data"""
-        # Test with a valid station ID
+        # First ensure we have a test station
+        with mysql.connector.connect(**TEST_DB_CONFIG) as conn:
+            with conn.cursor() as cursor:
+                # Create station table if it doesn't exist
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS station (
+                        number INT PRIMARY KEY,
+                        name VARCHAR(255),
+                        address VARCHAR(255),
+                        position_lat FLOAT,
+                        position_lng FLOAT,
+                        banking BOOLEAN,
+                        bonus BOOLEAN,
+                        status VARCHAR(50),
+                        bike_stands INT
+                    )
+                """)
+                # Insert test station data
+                cursor.execute("""
+                    INSERT INTO station 
+                    (number, name, address, position_lat, position_lng, banking, bonus, status, bike_stands)
+                    VALUES 
+                    (1, 'Test Station', 'Test Address', 53.3498, -6.2603, 1, 0, 'OPEN', 20)
+                    ON DUPLICATE KEY UPDATE
+                    name = VALUES(name),
+                    address = VALUES(address),
+                    position_lat = VALUES(position_lat),
+                    position_lng = VALUES(position_lng),
+                    banking = VALUES(banking),
+                    bonus = VALUES(bonus),
+                    status = VALUES(status),
+                    bike_stands = VALUES(bike_stands)
+                """)
+                conn.commit()
+
         station_id = 1
-        response = self.app.get(f'/api/station_history/{station_id}')
+        response = self.app.get(f'/api/station/{station_id}/history')
+        if response.status_code != 200:
+            print(f"Station history error: {response.data.decode()}")
+        self.assertEqual(response.status_code, 200)
+        
         data = json.loads(response.data)
+        self.assertIsInstance(data, list)
+        self.assertTrue(len(data) > 0)
         
-        self.assertEqual(response.status_code, 200, "Station history endpoint should return 200")
-        self.assertIn('usagePattern', data, "Response should contain usage pattern data")
-        self.assertIn('available_bikes', data['usagePattern'], "Usage pattern should contain available bikes data")
-        self.assertIn('available_stands', data['usagePattern'], "Usage pattern should contain available stands data")
+        first_prediction = data[0]
+        self.assertIn('timestamp', first_prediction)
+        self.assertIn('available_bikes', first_prediction)
+        self.assertIn('available_stands', first_prediction)
         
-        # Test with an invalid station ID
-        invalid_response = self.app.get('/api/station_history/999')
-        self.assertEqual(invalid_response.status_code, 400, "Invalid station ID should return 400")
+        invalid_response = self.app.get('/api/station/999/history')
+        self.assertEqual(invalid_response.status_code, 404)
 
     def test_error_handling_integration(self):
         """Test how different components handle errors together"""
@@ -127,7 +175,7 @@ class TestBikeAppIntegration(unittest.TestCase):
             os.environ['OPENWEATHER_API_KEY'] = 'invalid_key'
             
             response = self.app.get('/api/weather')
-            self.assertEqual(response.status_code, 401, "Invalid API key should return 401")
+            self.assertEqual(response.status_code, 401)
             
             # Restore API key
             os.environ['OPENWEATHER_API_KEY'] = original_weather_key

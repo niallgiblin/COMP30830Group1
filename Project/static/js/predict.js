@@ -1,11 +1,9 @@
 // Initialize prediction dropdown with station names
 function initPredictionDropdown() {
-    // console.log("Initializing prediction dropdown");
     const predictionDropdown = document.getElementById("predictionStationSelect");
     const stationSelect = document.getElementById("stationSelect");
     
     if (!predictionDropdown || !stationSelect) {
-        // console.error("Prediction dropdown or station select not found");
         return;
     }
     
@@ -31,7 +29,6 @@ function setupPredictionStationSearch() {
     const dropdown = document.getElementById("predictionStationSelect");
 
     if (!searchInput || !dropdown) {
-        // console.error("Prediction search input or dropdown not found");
         return;
     }
 
@@ -92,7 +89,6 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 
 function predict() {
-    // console.log("Predict button clicked");
     const date = document.getElementById("date").value;
     const time = document.getElementById("time").value;
     const stationSelect = document.getElementById("predictionStationSelect");
@@ -108,18 +104,13 @@ function predict() {
     // Format time to HH:MM:SS
     const formattedTime = `${time}:00`;
     
-    //Log
-    // console.log(`/predict?date=${date}&time=${formattedTime}&station_id=${station_id}`);
-
     // Send GET request to Flask API
     fetch(`/predict?date=${date}&time=${formattedTime}&station_id=${station_id}`, {
         method: "GET"
     })
         .then(response => {
-            // console.log("Raw response:", response);
             return response.json()})
         .then(data => {
-            // console.log("Prediction response:", data);
             if (data.predicted_available_bikes !== undefined) {
                 resultDiv.innerHTML = `Predicted Available Bikes: ${Math.round(data.predicted_available_bikes)}`;
             } else {
@@ -127,7 +118,6 @@ function predict() {
             }
         })
         .catch(error => {
-            // console.error("Fetch error:", error);
             resultDiv.innerHTML = `Error: ${error.message}`;
         });
 }

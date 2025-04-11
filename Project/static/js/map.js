@@ -8,7 +8,6 @@ const MapModule = (function () {
   let directionsRenderer;
   let onMarkerClickCallback = null;
   let directionsService;
-  let markerUpdateTimeout = null;
 
   // Custom map styles to hide certain POIs for better performance
   const mapStyles = [
@@ -138,7 +137,7 @@ const MapModule = (function () {
     markers = [];
 
     // Process markers in smaller batches to reduce handler time
-    const batchSize = 10; // Reduced from 20 to 10
+    const batchSize = 10;
     let currentIndex = 0;
     
     function processBatch() {

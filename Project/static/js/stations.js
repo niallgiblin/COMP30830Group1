@@ -40,7 +40,7 @@ const StationsModule = (function () {
 
       return stationData;
     } catch (error) {
-      console.error("❌ Station Load Error:", error.message);
+      console.error("Station Load Error:", error.message);
       UIModule?.showError("Could not load station data. Try again later.");
       return [];
     }

@@ -1,12 +1,10 @@
-from flask import Flask, g, render_template, jsonify, current_app, request
-from sqlalchemy import create_engine, text
+from flask import Flask, render_template, jsonify, request
 import os
 from dotenv import load_dotenv
 import requests
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 import pickle
 import numpy as np
-import sklearn
 import json
 import pandas as pd
 import logging
@@ -271,8 +269,9 @@ def predict():
         # Get date and time from request
         date = request.args.get("date")
         time = request.args.get("time")
-        station_id = request.args.get("station_id") 
-        dt = datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M:%S")  # Combine date and time into a single datetime object
+        station_id = request.args.get("station_id")
+        
+        # Check for missing parameters first
         if not date or not time or not station_id:
             return jsonify({"error": "Missing date, time, or station_id parameter"}), 400
         

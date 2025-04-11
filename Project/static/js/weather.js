@@ -83,7 +83,7 @@ const WeatherModule = (function () {
 // Make WeatherModule available globally
 window.WeatherModule = WeatherModule;
 
-// Initialize weather module when the page loads
+// Initialize weather module
 document.addEventListener("DOMContentLoaded", () => {
   WeatherModule.init();
 });

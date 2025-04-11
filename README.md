@@ -1,6 +1,6 @@
 # COMP30830Group1 - Dublin Bikes Application
 
-A web application for predicting bike availability at Dublin Bikes stations.
+A web application for displaying and predicting bike availability at Dublin Bikes stations.
 
 ## Project Structure
 
@@ -24,10 +24,9 @@ A web application for predicting bike availability at Dublin Bikes stations.
 
 ## Setup
 
-1. Install dependencies:
+1. Install dependencies on conda:
    ```
    conda env create -f environment.yml
-   conda activate SWEpy313
    ```
 
 2. Set up environment variables:

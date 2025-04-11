@@ -1,14 +1,14 @@
 import unittest
 import sys
 import os
-
-# Add the parent directory to the Python path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from Project.app import app, fetch_openweather_forecast
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import json
 from unittest.mock import patch, MagicMock
+import numpy as np
+
+# Add the parent directory to the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from Project.app import app, fetch_openweather_forecast
 
 class TestBikeApp(unittest.TestCase):
     def setUp(self):
@@ -50,79 +50,89 @@ class TestBikeApp(unittest.TestCase):
         self.assertEqual(result["humidity"], 80)
         self.assertEqual(result["pressure"], 1013)
 
-    @patch('requests.get')
-    def test_stations_route(self, mock_get):
+    def test_stations_route(self):
         """Test the stations route"""
-        # Mock JCDecaux API response
-        mock_response = MagicMock()
-        mock_response.json.return_value = [{
+        # Mock database response
+        mock_stations = [{
             "number": 1,
             "name": "Test Station",
             "address": "Test Address",
-            "position": {"lat": 53.3498, "lng": -6.2603},
+            "position_lat": 53.3498,
+            "position_lng": -6.2603,
             "status": "OPEN",
             "available_bikes": 5,
-            "available_bike_stands": 10,
-            "last_update": int(datetime.now().timestamp() * 1000)
+            "available_bike_stands": 10
         }]
-        mock_get.return_value = mock_response
+        
+        with patch('mysql.connector.connect') as mock_connect:
+            mock_conn = MagicMock()
+            mock_cursor = MagicMock()
+            mock_connect.return_value = mock_conn
+            mock_conn.cursor.return_value = mock_cursor
+            mock_cursor.fetchall.return_value = mock_stations
+            
+            response = self.app.get('/stations')
+            data = json.loads(response.data)
 
-        # Test the route
-        response = self.app.get('/stations')
-        data = json.loads(response.data)
+            self.assertEqual(response.status_code, 200)
+            self.assertIn('stations', data)
+            self.assertEqual(len(data['stations']), 1)
+            self.assertEqual(data['stations'][0]['number'], 1)
+            self.assertEqual(data['stations'][0]['name'], 'Test Station')
 
-        # Assertions
-        self.assertEqual(response.status_code, 200)
-        self.assertIn('stations', data)
-        self.assertEqual(len(data['stations']), 1)
-        self.assertEqual(data['stations'][0]['number'], 1)
-        self.assertEqual(data['stations'][0]['name'], 'Test Station')
-
-    @patch('requests.get')
-    def test_predict_route(self, mock_get):
+    @patch('Project.app.model')
+    @patch('Project.app.fetch_openweather_forecast')
+    def test_predict_route(self, mock_forecast, mock_model):
         """Test the prediction route"""
-        # Mock weather API response
-        mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "list": [
-                {
-                    "dt": int(datetime.now(timezone.utc).timestamp()),
-                    "main": {
-                        "temp": 15.5,
-                        "humidity": 80,
-                        "pressure": 1013
-                    }
-                }
-            ]
+        # Mock model prediction
+        mock_model.predict.return_value = np.array([10.0])
+        
+        # Mock weather forecast response
+        mock_forecast.return_value = {
+            "temperature": 15.5,
+            "humidity": 80,
+            "pressure": 1013
         }
-        mock_get.return_value = mock_response
 
-        # Test parameters
+        # Test parameters with future time (use naive datetime for comparison)
+        future_time = datetime.now() + timedelta(hours=2)  # Add 2 hours to ensure it's in the future
         test_params = {
-            'date': '2024-04-08',
-            'time': '12:00:00',
+            'date': future_time.strftime('%Y-%m-%d'),
+            'time': future_time.strftime('%H:%M:%S'),
             'station_id': '1'
         }
 
-        # Test the route
         response = self.app.get('/predict', query_string=test_params)
-        data = json.loads(response.data)
-
-        # Assertions
         self.assertEqual(response.status_code, 200)
+        data = json.loads(response.data)
         self.assertIn('predicted_available_bikes', data)
+        self.assertEqual(data['predicted_available_bikes'], 10)
 
-    def test_predict_route_invalid_params(self):
+    @patch('Project.app.model')
+    def test_predict_route_invalid_params(self, mock_model):
         """Test the prediction route with invalid parameters"""
+        # Mock model prediction
+        mock_model.predict.return_value = np.array([10.0])
+        
         # Test missing parameters
         response = self.app.get('/predict')
         self.assertEqual(response.status_code, 400)
 
-        # Test invalid station ID
+        # Test invalid date format
         test_params = {
-            'date': '2024-04-08',
+            'date': 'invalid-date',
             'time': '12:00:00',
-            'station_id': '999'  # Invalid station ID
+            'station_id': '1'
+        }
+        response = self.app.get('/predict', query_string=test_params)
+        self.assertEqual(response.status_code, 400)
+
+        # Test past time
+        past_time = datetime.now(timezone.utc) - timedelta(hours=1)
+        test_params = {
+            'date': past_time.strftime('%Y-%m-%d'),
+            'time': past_time.strftime('%H:%M:%S'),
+            'station_id': '1'
         }
         response = self.app.get('/predict', query_string=test_params)
         self.assertEqual(response.status_code, 400)
