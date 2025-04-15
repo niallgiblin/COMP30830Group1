@@ -3,7 +3,6 @@ const ChartsModule = (function() {
   // Chart instances
   let usageChart = null;
   let standsChart = null;
-  let currentStationId = null;
   
   // Data cache
   const dataCache = new Map();
@@ -47,43 +46,65 @@ const ChartsModule = (function() {
     }
   }
 
+  // Format time for display
+  function formatTimeLabel(value) {
+    if (typeof value !== 'string') return value;
+    // Remove :00 only if it exists at the end of the string
+    return value.endsWith(':00') ? value.slice(0, -3) : value;
+  }
+
+  // Safely destroy a chart instance
+  function safelyDestroyChart(chart) {
+    if (chart) {
+      chart.destroy();
+      return null;
+    }
+    return null;
+  }
+
   // Create usage pattern chart
   function createUsageChart(canvas, data) {
-    if (usageChart) {
-      usageChart.destroy();
-      usageChart = null;
-    }
+    // Safely destroy existing chart
+    usageChart = safelyDestroyChart(usageChart);
+
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     usageChart = new Chart(canvas, {
       type: 'line',
       data: {
         labels: data.labels || [],
         datasets: [{
-          label: 'Available Bikes',
+          label: 'Typical Available Bikes',
           data: data.values || [],
           borderColor: '#4285F4',
           backgroundColor: 'rgba(66, 133, 244, 0.1)',
           borderWidth: 2,
-          tension: 0.3,
+          tension: 0.4,
           fill: true,
           pointRadius: 3,
-          pointHoverRadius: 5,
-          spanGaps: true // Enable spanning gaps between points
+          pointHoverRadius: 5
         }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        animation: false,
+        animation: {
+          duration: 750,
+          easing: 'easeInOutQuart'
+        },
         layout: {
           padding: {
             left: 10,
-            right: 10,
-            top: 10,
+            right: 25,
+            top: 20,
             bottom: 20
           }
         },
         plugins: {
+          title: {
+            display: false
+          },
           legend: {
             display: false
           },
@@ -99,7 +120,11 @@ const ChartsModule = (function() {
             padding: 10,
             callbacks: {
               label: function(context) {
-                return `Available Bikes: ${Math.round(context.raw)}`;
+                const value = context.raw;
+                if (value === null || value === undefined) {
+                  return 'No data available';
+                }
+                return `Typically Available Bikes: ${Math.round(value)}`;
               }
             }
           }
@@ -107,6 +132,7 @@ const ChartsModule = (function() {
         scales: {
           y: {
             beginAtZero: true,
+            min: 0,
             title: {
               display: true,
               text: 'Available Bikes',
@@ -126,19 +152,19 @@ const ChartsModule = (function() {
               stepSize: 5
             },
             grid: {
-              drawBorder: false
+              drawBorder: false,
+              color: 'rgba(0, 0, 0, 0.1)'
             }
           },
           x: {
             type: 'category',
             title: {
               display: true,
-              text: 'Time',
+              text: 'Time of Day',
               font: {
                 size: 14,
                 weight: 'bold'
-              },
-              padding: {top: 10}
+              }
             },
             ticks: {
               font: {
@@ -146,11 +172,9 @@ const ChartsModule = (function() {
               },
               padding: 5,
               maxRotation: 45,
-              autoSkip: false,
-              callback: function(value, index) {
-                const targetHours = [5, 9, 12, 16, 19, 23];
-                const hour = index + 5;
-                return targetHours.includes(hour) ? `${hour.toString().padStart(2, '0')}:00` : '';
+              minRotation: 45,
+              callback: function(value) {
+                return formatTimeLabel(value);
               }
             },
             grid: {
@@ -164,22 +188,23 @@ const ChartsModule = (function() {
   
   // Create stands availability chart
   function createStandsChart(canvas, data) {
-    if (standsChart) {
-      standsChart.destroy();
-      standsChart = null;
-    }
+    // Safely destroy existing chart
+    standsChart = safelyDestroyChart(standsChart);
+
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     standsChart = new Chart(canvas, {
       type: 'line',
       data: {
         labels: data.labels || [],
         datasets: [{
-          label: 'Available Stands',
+          label: 'Typical Available Stands',
           data: data.values || [],
           borderColor: '#34A853',
           backgroundColor: 'rgba(52, 168, 83, 0.1)',
           borderWidth: 2,
-          tension: 0.3,
+          tension: 0.4,
           fill: true,
           pointRadius: 3,
           pointHoverRadius: 5
@@ -188,16 +213,22 @@ const ChartsModule = (function() {
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        animation: false,
+        animation: {
+          duration: 750,
+          easing: 'easeInOutQuart'
+        },
         layout: {
           padding: {
             left: 10,
-            right: 10,
-            top: 10,
+            right: 25,
+            top: 20,
             bottom: 20
           }
         },
         plugins: {
+          title: {
+            display: false
+          },
           legend: {
             display: false
           },
@@ -213,7 +244,11 @@ const ChartsModule = (function() {
             padding: 10,
             callbacks: {
               label: function(context) {
-                return `Available Stands: ${Math.round(context.raw)}`;
+                const value = context.raw;
+                if (value === null || value === undefined) {
+                  return 'No data available';
+                }
+                return `Typically Available Stands: ${Math.round(value)}`;
               }
             }
           }
@@ -221,6 +256,7 @@ const ChartsModule = (function() {
         scales: {
           y: {
             beginAtZero: true,
+            min: 0,
             title: {
               display: true,
               text: 'Available Stands',
@@ -240,19 +276,19 @@ const ChartsModule = (function() {
               stepSize: 5
             },
             grid: {
-              drawBorder: false
+              drawBorder: false,
+              color: 'rgba(0, 0, 0, 0.1)'
             }
           },
           x: {
             type: 'category',
             title: {
               display: true,
-              text: 'Time',
+              text: 'Time of Day',
               font: {
                 size: 14,
                 weight: 'bold'
-              },
-              padding: {top: 10}
+              }
             },
             ticks: {
               font: {
@@ -260,11 +296,9 @@ const ChartsModule = (function() {
               },
               padding: 5,
               maxRotation: 45,
-              autoSkip: false,
-              callback: function(value, index) {
-                const targetHours = [5, 9, 12, 16, 19, 23];
-                const hour = index + 5;
-                return targetHours.includes(hour) ? `${hour.toString().padStart(2, '0')}:00` : '';
+              minRotation: 45,
+              callback: function(value) {
+                return formatTimeLabel(value);
               }
             },
             grid: {
@@ -276,6 +310,73 @@ const ChartsModule = (function() {
     });
   }
 
+  // Update charts with data
+  function updateChartsWithData(data) {
+    const usageCanvas = document.getElementById("usageChart");
+    const standsCanvas = document.getElementById("busyTimesChart");
+    
+    if (!usageCanvas || !standsCanvas) return;
+    
+    // Ensure data is valid
+    if (!Array.isArray(data) || data.length === 0) {
+      console.error("Invalid or empty data received");
+      createUsageChart(usageCanvas, {
+        labels: ["No data available"],
+        values: [0],
+      });
+      createStandsChart(standsCanvas, {
+        labels: ["No data available"],
+        values: [0],
+      });
+      return;
+    }
+    
+    // Extract and validate data from the response
+    const validData = data.filter(
+      (point) =>
+        point &&
+        point.timestamp !== undefined &&
+        point.available_bikes !== undefined &&
+        point.available_stands !== undefined
+    );
+    
+    // Ensure we have data points
+    if (validData.length === 0) {
+      console.error("No valid data points found");
+      createUsageChart(usageCanvas, {
+        labels: ["No valid data"],
+        values: [0],
+      });
+      createStandsChart(standsCanvas, {
+        labels: ["No valid data"],
+        values: [0],
+      });
+      return;
+    }
+    
+    // Sort data by timestamp to ensure correct order
+    validData.sort((a, b) => {
+      const timeA = parseInt(a.timestamp.split(":")[0]);
+      const timeB = parseInt(b.timestamp.split(":")[0]);
+      return timeA - timeB;
+    });
+    
+    const timeSlots = validData.map((point) => point.timestamp);
+    const bikeValues = validData.map((point) => point.available_bikes === null ? 0 : point.available_bikes);
+    const standValues = validData.map((point) => point.available_stands === null ? 0 : point.available_stands);
+    
+    // Update charts
+    createUsageChart(usageCanvas, {
+      labels: timeSlots,
+      values: bikeValues,
+    });
+    
+    createStandsChart(standsCanvas, {
+      labels: timeSlots,
+      values: standValues,
+    });
+  }
+  
   // Get cached data if available and not expired
   function getCachedData(stationId) {
     const cached = dataCache.get(stationId);
@@ -299,7 +400,7 @@ const ChartsModule = (function() {
     
     // If we have valid cached data, use it immediately
     if (cachedData) {
-      updateChartsWithData(stationId, cachedData);
+      updateChartsWithData(cachedData);
       return;
     }
     
@@ -313,15 +414,15 @@ const ChartsModule = (function() {
         return response.json();
       })
       .then(data => {
-        if (!Array.isArray(data) || data.length === 0) {
-          throw new Error('No prediction data received');
+        if (!Array.isArray(data)) {
+          throw new Error('Invalid data format received');
         }
         
         // Update cache with fresh data
         updateCache(stationId, data);
         
         // Update the charts
-        updateChartsWithData(stationId, data);
+        updateChartsWithData(data);
       })
       .catch(() => {
         // Show error state without logging
@@ -330,65 +431,18 @@ const ChartsModule = (function() {
         
         if (usageCanvas) {
           createUsageChart(usageCanvas, {
-            labels: ['Error loading data'],
-            values: [0]
+            labels: ["Error loading data"],
+            values: [0],
           });
         }
         
         if (standsCanvas) {
           createStandsChart(standsCanvas, {
-            labels: ['Error loading data'],
-            values: [0]
+            labels: ["Error loading data"],
+            values: [0],
           });
         }
       });
-  }
-
-  // Update charts with data
-  function updateChartsWithData(stationId, data) {
-    const usageCanvas = document.getElementById("usageChart");
-    const standsCanvas = document.getElementById("busyTimesChart");
-    
-    if (!usageCanvas || !standsCanvas) return;
-    
-    // Generate all time slots from 05:00 to 23:00
-    const allTimeSlots = [];
-    for (let hour = 5; hour <= 23; hour++) {
-        allTimeSlots.push(`${hour.toString().padStart(2, '0')}:00`);
-    }
-    
-    // Create a map of hours to predictions
-    const predictionMap = new Map();
-    data.forEach(prediction => {
-        const hour = prediction.timestamp.split(':')[0];
-        predictionMap.set(hour, prediction);
-    });
-    
-    // Generate values for each hour
-    const bikeValues = allTimeSlots.map(timeSlot => {
-        const hour = timeSlot.split(':')[0];
-        return predictionMap.get(hour)?.available_bikes ?? null;
-    });
-    
-    const standValues = allTimeSlots.map(timeSlot => {
-        const hour = timeSlot.split(':')[0];
-        return predictionMap.get(hour)?.available_stands ?? null;
-    });
-    
-    // Update charts
-    if (usageCanvas) {
-        createUsageChart(usageCanvas, {
-            labels: allTimeSlots,
-            values: bikeValues
-        });
-    }
-    
-    if (standsCanvas) {
-        createStandsChart(standsCanvas, {
-            labels: allTimeSlots,
-            values: standValues
-        });
-    }
   }
   
   // Debounce function to prevent multiple rapid requests

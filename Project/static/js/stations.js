@@ -200,91 +200,151 @@ const StationsModule = (function () {
   // Get user's current location
   async function getUserLocation() {
     return new Promise((resolve, reject) => {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            resolve({
-              lat: position.coords.latitude,
-              lng: position.coords.longitude,
-            });
-          },
-          (error) => {
-            reject(new Error("Unable to retrieve location"));
-          }
-        );
-      } else {
-        reject(new Error("Geolocation not supported"));
+      if (!navigator.geolocation) {
+        reject(new Error("Geolocation is not supported by your browser"));
+        return;
       }
+
+      const options = {
+        enableHighAccuracy: true,
+        timeout: 5000,
+        maximumAge: 0
+      };
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          });
+        },
+        (error) => {
+          console.warn("Geolocation error:", error.message);
+          // If geolocation fails, use Dublin city center as fallback
+          resolve({
+            lat: 53.3498,
+            lng: -6.2603
+          });
+        },
+        options
+      );
     });
   }
 
-  // Find the nearest station with available bikes using cached data
+  // Find nearest station with available bikes
   async function findNearestAvailableBike() {
     try {
       const userLocation = await getUserLocation();
 
-      if (!stationData || stationData.length === 0) {
-        throw new Error("No stations available.");
+      // Get all stations with availability data
+      const stations = stationData;
+      if (!stations || stations.length === 0) {
+        throw new Error("No station data available");
       }
 
-      // Find stations near the user first to minimize requests
-      const nearbyStations = stationData
-        .map((station) => {
-          const distance = window.UtilsModule.calculateDistance(
-            userLocation.lat,
-            userLocation.lng,
-            parseFloat(station.position_lat),
-            parseFloat(station.position_lng)
-          );
-          return { ...station, distance };
-        })
-        .sort((a, b) => a.distance - b.distance)
-        .slice(0, 15); // Check only closest 15 stations
+      // First pass: Find nearest station with bikes using cached data
+      let nearestStation = null;
+      let minDistance = Infinity;
 
-      // Ensure we have fresh availability data for nearby stations
-      await loadStationsAvailability(nearbyStations.map((s) => s.number));
+      for (const station of stations) {
+        const stationLat = parseFloat(station.position.lat);
+        const stationLng = parseFloat(station.position.lng);
 
-      // Filter stations with available bikes
-      const availableStations = nearbyStations.filter((station) => {
-        const availability = AVAILABILITY_CACHE[station.number]?.data;
-        return availability && availability.available_bikes > 0;
-      });
+        if (isNaN(stationLat) || isNaN(stationLng)) {
+          console.warn("Invalid coordinates for station:", station);
+          continue;
+        }
 
-      if (availableStations.length === 0) {
-        UIModule?.showAlert("No available bikes found nearby. Try another location.");
-        return null;
-      }
+        // Calculate distance using Haversine formula
+        const distance = calculateDistance(
+          userLocation.lat,
+          userLocation.lng,
+          stationLat,
+          stationLng
+        );
 
-      // Get the closest station with available bikes
-      const nearestStation = availableStations[0];
-
-      // Center map on the station
-      if (window.MapModule) {
-        window.MapModule.centerOnStation(nearestStation);
-        
-        // Show directions to the nearest station
-        if (window.MapModule.showDirections) {
-          // Set user location marker
-          window.MapModule.setUserLocationMarker(userLocation);
-          
-          // Show directions from user location to the nearest station
-          window.MapModule.showDirections(userLocation, nearestStation);
-        } else {
-          console.warn("MapModule.showDirections is not available");
+        // Check cached availability first
+        const cachedAvailability = AVAILABILITY_CACHE[station.number];
+        if (cachedAvailability && 
+            cachedAvailability.timestamp > Date.now() - CACHE_EXPIRY && 
+            cachedAvailability.available_bikes > 0 && 
+            distance < minDistance) {
+          minDistance = distance;
+          nearestStation = station;
         }
       }
 
-      // Show station info
-      if (window.UIModule) {
-        window.UIModule.showStationInfo(nearestStation);
+      // If no station found in cache, try fetching availability for the closest stations
+      if (!nearestStation) {
+        // Sort stations by distance
+        const sortedStations = stations
+          .map(station => ({
+            station,
+            distance: calculateDistance(
+              userLocation.lat,
+              userLocation.lng,
+              parseFloat(station.position.lat),
+              parseFloat(station.position.lng)
+            )
+          }))
+          .sort((a, b) => a.distance - b.distance);
+
+        // Check the 5 closest stations
+        for (let i = 0; i < Math.min(5, sortedStations.length); i++) {
+          const { station } = sortedStations[i];
+          const availability = await fetchAvailability(station.number);
+          if (availability.available_bikes > 0) {
+            nearestStation = station;
+            break;
+          }
+        }
       }
 
+      if (!nearestStation) {
+        throw new Error("No stations with available bikes found");
+      }
+      
+      // Center map on the station and show directions
+      if (window.MapModule) {
+        // First center the map on the station
+        window.MapModule.centerOnStation(nearestStation);
+        
+        // Then show directions
+        if (window.MapModule.showDirections) {
+          await window.MapModule.showDirections(userLocation, nearestStation);
+        } else {
+          console.error("MapModule.showDirections is not available");
+        }
+
+        // Open station info panel
+        if (window.UIModule && window.UIModule.showStationInfo) {
+          window.UIModule.showStationInfo(nearestStation);
+        }
+      } else {
+        console.error("MapModule is not available");
+      }
+      
       return nearestStation;
     } catch (error) {
       console.error("Error finding nearest bike:", error);
-      UIModule?.showError("Could not find nearest bike. Please try again.");
-      return null;
+      throw error;
     }
+  }
+
+  // Calculate distance between two points using Haversine formula
+  function calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  function toRad(degrees) {
+    return degrees * (Math.PI / 180);
   }
 
   function resetApp() {

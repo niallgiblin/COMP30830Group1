@@ -34,6 +34,10 @@ class TestBikeApp(unittest.TestCase):
                         "temp": 15.5,
                         "humidity": 80,
                         "pressure": 1013
+                    },
+                    "position": {
+                        "lat": 53.3498,
+                        "lng": -6.2603
                     }
                 }
             ]
@@ -57,8 +61,10 @@ class TestBikeApp(unittest.TestCase):
             "number": 1,
             "name": "Test Station",
             "address": "Test Address",
-            "position_lat": 53.3498,
-            "position_lng": -6.2603,
+            "position": {
+                "lat": 53.3498,
+                "lng": -6.2603
+            },
             "status": "OPEN",
             "available_bikes": 5,
             "available_bike_stands": 10
@@ -91,7 +97,11 @@ class TestBikeApp(unittest.TestCase):
         mock_forecast.return_value = {
             "temperature": 15.5,
             "humidity": 80,
-            "pressure": 1013
+            "pressure": 1013,
+            "position": {
+                "lat": 53.3498,
+                "lng": -6.2603
+            }
         }
 
         # Test parameters with future time (use naive datetime for comparison)

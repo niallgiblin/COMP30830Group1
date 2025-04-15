@@ -9,7 +9,6 @@ import json
 import pandas as pd
 import logging
 from flask_caching import Cache
-import mysql.connector
 import gzip
 from functools import lru_cache
 
@@ -44,9 +43,35 @@ data_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'final_data_fo
 try:
     if not os.path.exists(data_path):
         raise Exception("Historical data file not found")
-    historical_data = pd.read_csv(data_path)
+    
+    # Read CSV with explicit data types
+    historical_data = pd.read_csv(data_path, dtype={
+        'station_id': float,
+        'temperature': float,
+        'humidity': float,
+        'pressure': float,
+        'hour': int,
+        'day_of_week': int,
+        'num_bikes_available': int
+    })
+    
     if historical_data is None or historical_data.empty:
         raise Exception("Historical data loaded but is empty")
+    
+    # Verify required columns exist
+    required_columns = ['station_id', 'hour', 'num_bikes_available']
+    missing_columns = [col for col in required_columns if col not in historical_data.columns]
+    if missing_columns:
+        raise Exception(f"Missing required columns: {missing_columns}")
+    
+    # Log sample of data for debugging
+    logger.info("Sample of loaded historical data:")
+    logger.info(historical_data.head().to_string())
+    logger.info(f"Total records: {len(historical_data)}")
+    logger.info(f"Unique stations: {historical_data['station_id'].nunique()}")
+    logger.info(f"Value ranges:")
+    logger.info(f"num_bikes_available: {historical_data['num_bikes_available'].min()} to {historical_data['num_bikes_available'].max()}")
+    
 except Exception as e:
     logger.error(f"Error loading historical data: {str(e)}")
     historical_data = None
@@ -93,30 +118,6 @@ cache = Cache(app, config={
     'CACHE_DEFAULT_TIMEOUT': 300
 })
 
-# Database configuration
-db_config = {
-    'host': os.getenv('DB_HOST'),
-    'user': os.getenv('DB_USER'),
-    'password': os.getenv('DB_PASSWORD'),
-    'database': os.getenv('DB_NAME')
-}
-
-# Database connection with connection pooling
-def get_db_connection():
-    try:
-        conn = mysql.connector.connect(
-            pool_name="mypool",
-            pool_size=5,
-            **db_config
-        )
-        return conn
-    except Exception as e:
-        logger.error(f"Database connection error: {str(e)}")
-        return None
-
-# Initialize connection pool
-get_db_connection()
-
 # Cache for weather data
 @lru_cache(maxsize=100)
 def get_cached_weather(lat, lng):
@@ -141,46 +142,92 @@ def index():
 @cache.cached(timeout=300)
 def get_stations():
     try:
-        conn = get_db_connection()
-        if not conn:
-            return jsonify({'error': 'Database connection failed'}), 500
+        api_key = os.environ.get('JCDECAUX_API_KEY')
+        contract = "dublin"
+        url = f"https://api.jcdecaux.com/vls/v1/stations?contract={contract}&apiKey={api_key}"
+        
+        response = requests.get(url)
+        response.raise_for_status()
+        stations = response.json()
+        
+        # Log the raw response for debugging
+        logger.debug(f"Raw stations data: {json.dumps(stations[:1])}")  # Log first station only
+        
+        # Transform the stations to use the new position structure
+        transformed_stations = []
+        for station in stations:
+            try:
+                # Handle different possible position formats
+                position = station.get('position', {})
+                lat = position.get('lat')
+                lng = position.get('lng')
+                
+                # Log the raw position data
+                logger.debug(f"Raw position data for station {station.get('number')}: {json.dumps(position)}")
+                
+                # If lat/lng are not in the expected format, try alternative keys
+                if lat is None or lng is None:
+                    lat = position.get('latitude')
+                    lng = position.get('longitude')
+                    logger.debug(f"Trying alternative keys for station {station.get('number')}: lat={lat}, lng={lng}")
+                
+                # Ensure we have valid coordinates
+                if lat is None or lng is None:
+                    logger.error(f"Missing coordinates for station {station.get('number')}")
+                    continue
+                
+                # Convert to float and validate
+                try:
+                    lat = float(lat)
+                    lng = float(lng)
+                    logger.debug(f"Converted coordinates for station {station.get('number')}: lat={lat}, lng={lng}")
+                except (ValueError, TypeError):
+                    logger.error(f"Invalid coordinate format for station {station.get('number')}: lat={lat}, lng={lng}")
+                    continue
+                
+                transformed_station = {
+                    'number': station['number'],
+                    'name': station['name'],
+                    'address': station['address'],
+                    'position': {
+                        'lat': lat,
+                        'lng': lng
+                    },
+                    'banking': station['banking'],
+                    'bonus': station['bonus'],
+                    'status': station['status'],
+                    'bike_stands': station['bike_stands']
+                }
+                transformed_stations.append(transformed_station)
+                
+            except Exception as e:
+                logger.error(f"Error processing station {station.get('number')}: {str(e)}")
+                continue
             
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM station")
-        stations = cursor.fetchall()
-        cursor.close()
-        conn.close()
-        return jsonify({'stations': stations})
-    except Exception:
+        # Log the transformed data for debugging
+        logger.debug(f"Transformed stations data: {json.dumps(transformed_stations[:1])}")  # Log first station only
+        
+        return jsonify({'stations': transformed_stations})
+    except Exception as e:
+        logger.error(f"Error fetching stations: {str(e)}")
         return jsonify({'error': 'Failed to fetch stations'}), 500
     
 # API route to get availability for a specific station
 @app.route("/available/<int:station_id>")
 def get_station_availability(station_id):
     try:
-        # Get live data from JCDecaux API
-        api_key = os.environ.get('JCDECAUX_API_KEY')
-        contract = "dublin"
-        url = f"https://api.jcdecaux.com/vls/v1/stations/{station_id}?contract={contract}&apiKey={api_key}"
-        
-        response = requests.get(url)
-        response.raise_for_status()
-        station_data = response.json()
-        
-        return jsonify({
-            "available_bikes": station_data['available_bikes'],
-            "available_bike_stands": station_data['available_bike_stands'],
-            "last_updated": datetime.fromtimestamp(station_data['last_update']/1000).isoformat()
-        })
+        station_data = fetch_station_data(station_id)
+        if not station_data:
+            return jsonify({'error': 'Station not found'}), 404
             
-    except Exception as e:
-        logger.error(f"Error fetching availability for station {station_id}: {str(e)}")
         return jsonify({
-            "error": "API error",
-            "available_bikes": 0,
-            "available_bike_stands": 0,
-            "last_updated": datetime.now().isoformat()
-        }), 200
+            'available_bikes': station_data['available_bikes'],
+            'available_bike_stands': station_data['available_bike_stands'],
+            'last_update': station_data['last_update']
+        })
+    except Exception as e:
+        logger.error(f"Error getting station availability: {str(e)}")
+        return jsonify({'error': 'Failed to get station availability'}), 500
 
 @app.route('/api/weather')
 def get_weather():
@@ -342,7 +389,11 @@ def get_station(station_id):
             'number': station_data['number'],
             'name': station_data['name'],
             'bike_stands': station_data['bike_stands'],
-            'status': station_data['status']
+            'status': station_data['status'],
+            'position': {
+                'lat': station_data['position']['lat'],
+                'lng': station_data['position']['lng']
+            }
         }
     except Exception as e:
         logger.error(f"Error fetching station {station_id}: {str(e)}")
@@ -384,61 +435,59 @@ def normalize_prediction(raw_prediction, max_bikes):
 @cache.cached(timeout=300)
 def get_station_history(station_id):
     try:
-        # Check if model is loaded
-        if model is None:
-            return jsonify({'error': 'Prediction model not available'}), 503
+        if historical_data is None:
+            logger.error("Historical data is None")
+            return jsonify({'error': 'Historical data not available'}), 500
 
-        # Get cached station data
-        station = get_cached_station(station_id)
-        if not station:
-            station = fetch_station_data(station_id)
-            if not station:
-                return jsonify({'error': 'Station not found'}), 404
-
-        predictions = []
-        current_time = datetime.now().replace(minute=0, second=0, microsecond=0)
-        start_hour = 5  # Start at 5 AM
-        end_hour = 23   # End at 11 PM
+        # Get current station data for total stands
+        api_key = os.environ.get('JCDECAUX_API_KEY')
+        contract = "dublin"
+        url = f"https://api.jcdecaux.com/vls/v1/stations/{station_id}?contract={contract}&apiKey={api_key}"
         
-        # Get weather data once for all predictions
-        weather_data = get_cached_weather(station['position_lat'], station['position_lng'])
-        if not weather_data:
-            return jsonify({'error': 'Weather data not available'}), 500
-
-        # Generate predictions for each hour from 5 AM to 11 PM
-        for hour in range(start_hour, end_hour + 1):
-            prediction_time = current_time.replace(hour=hour)
+        response = requests.get(url)
+        response.raise_for_status()
+        station_data = response.json()
+        total_stands = station_data['bike_stands']
+        
+        # Filter historical data for this station
+        station_history = historical_data[historical_data['station_id'] == float(station_id)].copy()
+        
+        if station_history.empty:
+            logger.warning(f"No historical data found for station {station_id}")
+            return jsonify({'error': 'No historical data available'}), 404
+        
+        # Calculate hourly averages
+        hourly_stats = station_history.groupby('hour')['num_bikes_available'].agg(['mean', 'count']).reset_index()
+        
+        # Create data points for all 24 hours
+        data_points = []
+        for hour in range(24):
+            hour_data = hourly_stats[hourly_stats['hour'] == hour]
             
-            try:
-                # Prepare input features
-                input_features = prepare_features(station, weather_data, prediction_time)
-                
-                # Make prediction
-                raw_prediction = model.predict(input_features)[0]
-                
-                # Normalize prediction to get actual number of bikes
-                available_bikes = max(0, min(station['bike_stands'], round(normalize_prediction(raw_prediction, station['bike_stands']))))
-                available_stands = station['bike_stands'] - available_bikes
-                
-                predictions.append({
-                    'timestamp': prediction_time.strftime('%H:%M'),
-                    'available_bikes': available_bikes,
-                    'available_stands': available_stands
-                })
-                
-            except Exception as e:
-                # Skip this hour if prediction fails
-                continue
-
-        if not predictions:
-            return jsonify({'error': 'No predictions generated'}), 500
-
-        # Sort predictions by timestamp
-        predictions.sort(key=lambda x: x['timestamp'])
-        return jsonify(predictions)
+            if not hour_data.empty:
+                avg_bikes = int(round(hour_data['mean'].iloc[0]))
+                # Ensure the average is within bounds
+                avg_bikes = max(0, min(avg_bikes, total_stands))
+                avg_stands = total_stands - avg_bikes
+            else:
+                # If no data for this hour, use 50% of total stands as default
+                avg_bikes = total_stands // 2
+                avg_stands = total_stands - avg_bikes
+            
+            data_points.append({
+                'timestamp': f"{hour:02d}:00",
+                'available_bikes': avg_bikes,
+                'available_stands': avg_stands
+            })
         
+        # Sort data points by hour
+        data_points.sort(key=lambda x: int(x['timestamp'].split(':')[0]))
+        
+        return jsonify(data_points)
+            
     except Exception as e:
-        return jsonify({'error': 'Failed to generate predictions'}), 500
+        logger.error(f"Error fetching station history: {str(e)}")
+        return jsonify({'error': 'Failed to fetch station history'}), 500
 
 def prepare_features(station, weather_data, prediction_time):
     try:
@@ -477,37 +526,37 @@ def fetch_weather_data(lat, lng):
         return None
 
 def fetch_station_data(station_id):
+    """Get station data from JCDecaux API"""
     try:
-        conn = get_db_connection()
-        if not conn:
-            return None
-            
-        cursor = conn.cursor(dictionary=True)
-        try:
-            cursor.execute("SELECT * FROM station WHERE number = %s", (station_id,))
-            result = cursor.fetchall()
-            
-            cursor.close()
-            conn.close()
-            
-            if result:
-                return result[0]
-            return None
-                
-        except Exception as e:
-            logger.error(f"Error executing query: {str(e)}")
-            cursor.close()
-            conn.close()
-            return None
-            
+        api_key = os.environ.get('JCDECAUX_API_KEY')
+        contract = "dublin"
+        url = f"https://api.jcdecaux.com/vls/v1/stations/{station_id}?contract={contract}&apiKey={api_key}"
+        
+        response = requests.get(url)
+        response.raise_for_status()
+        station_data = response.json()
+        
+        # Transform the data to match our expected format
+        transformed_data = {
+            'number': station_data['number'],
+            'name': station_data['name'],
+            'address': station_data['address'],
+            'position': {
+                'lat': station_data['position']['lat'],
+                'lng': station_data['position']['lng']
+            },
+            'bike_stands': station_data['bike_stands'],
+            'available_bikes': station_data['available_bikes'],
+            'available_bike_stands': station_data['available_bike_stands'],
+            'status': station_data['status'],
+            'last_update': station_data['last_update']
+        }
+        
+        return transformed_data
     except Exception as e:
-        logger.error(f"Error in fetch_station_data: {str(e)}")
-        if 'cursor' in locals():
-            cursor.close()
-        if 'conn' in locals():
-            conn.close()
+        logger.error(f"Error fetching station {station_id}: {str(e)}")
         return None
 
 # Run the app
 if __name__ == '__main__':
-    app.run(host='127.0.0.1', port=5500, debug=True, use_reloader=False)
+    app.run(host='0.0.0.0', port=5500, debug=True, use_reloader=False)

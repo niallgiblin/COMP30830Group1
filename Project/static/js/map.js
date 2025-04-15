@@ -146,8 +146,9 @@ const MapModule = (function () {
       
       for (let i = currentIndex; i < endIndex; i++) {
         const station = stations[i];
-        const lat = parseFloat(station.position_lat);
-        const lng = parseFloat(station.position_lng);
+        
+        const lat = parseFloat(station.position.lat);
+        const lng = parseFloat(station.position.lng);
 
         if (isNaN(lat) || isNaN(lng)) {
           console.error("Invalid coordinates for station:", station);
@@ -209,8 +210,8 @@ const MapModule = (function () {
   // Center map on specific station
   function centerMapOnStation(station) {
     const stationLocation = {
-      lat: parseFloat(station.position_lat),
-      lng: parseFloat(station.position_lng),
+      lat: parseFloat(station.position.lat),
+      lng: parseFloat(station.position.lng),
     };
     map.setCenter(stationLocation);
     map.setZoom(18);
@@ -227,6 +228,11 @@ const MapModule = (function () {
     return new Promise((resolve) => {
       // Use requestAnimationFrame to avoid blocking the main thread
       requestAnimationFrame(() => {
+        // Initialize directions service if not already done
+        if (!directionsService) {
+          directionsService = new google.maps.DirectionsService();
+        }
+
         // 1. Clear previous directions completely
         if (directionsRenderer) {
           directionsRenderer.setMap(null);
@@ -236,7 +242,7 @@ const MapModule = (function () {
         // 2. Create fresh renderer instance
         directionsRenderer = new google.maps.DirectionsRenderer({
           suppressMarkers: false,
-          preserveViewport: true,
+          preserveViewport: false, // Changed to false to show entire route
         });
 
         // 3. Attach to map
@@ -246,8 +252,8 @@ const MapModule = (function () {
         directionsService.route({
           origin: origin,
           destination: {
-            lat: parseFloat(destinationStation.position_lat),
-            lng: parseFloat(destinationStation.position_lng)
+            lat: parseFloat(destinationStation.position.lat),
+            lng: parseFloat(destinationStation.position.lng)
           },
           travelMode: google.maps.TravelMode.WALKING
         }, (response, status) => {
@@ -326,8 +332,8 @@ const MapModule = (function () {
     
     // Filter stations that are within the current map bounds
     const visibleStations = allStations.filter(station => {
-      const lat = parseFloat(station.position_lat);
-      const lng = parseFloat(station.position_lng);
+      const lat = parseFloat(station.position.lat);
+      const lng = parseFloat(station.position.lng);
       
       if (isNaN(lat) || isNaN(lng)) {
         return false;

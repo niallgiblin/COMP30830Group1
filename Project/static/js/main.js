@@ -1,5 +1,21 @@
 // main.js
 document.addEventListener("DOMContentLoaded", function () {
+  // Set up the find bike button click handler immediately
+  const findBikeBtn = document.getElementById("findNearestBikeBtn");
+  if (findBikeBtn) {
+    findBikeBtn.addEventListener("click", async function () {
+      try {
+        if (window.StationsModule && window.StationsModule.findNearestAvailableBike) {
+          await StationsModule.findNearestAvailableBike();
+        } else {
+          console.error("StationsModule or findNearestAvailableBike not available");
+        }
+      } catch (error) {
+        console.error("Error finding nearest bike:", error);
+      }
+    });
+  }
+
   // Define initMap function immediately to ensure it's available when Google Maps calls it
   window.initMap = async function () {
     try {
@@ -43,19 +59,6 @@ document.addEventListener("DOMContentLoaded", function () {
       if (WeatherModule && WeatherModule.fetch) {
         WeatherModule.fetch().catch((error) => {
           console.warn("Weather data could not be loaded:", error);
-        });
-      }
-
-      // Initialize the find bike button
-      const findBikeBtn = document.getElementById("findNearestBikeBtn");
-      if (findBikeBtn) {
-        findBikeBtn.addEventListener("click", function () {
-          if (window.StationsModule && window.StationsModule.findNearestAvailableBike) {
-            // Use requestAnimationFrame to avoid blocking the main thread
-            requestAnimationFrame(() => {
-              StationsModule.findNearestAvailableBike();
-            });
-          }
         });
       }
     } catch (error) {

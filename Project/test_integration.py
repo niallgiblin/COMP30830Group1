@@ -122,8 +122,7 @@ class TestBikeAppIntegration(unittest.TestCase):
                         number INT PRIMARY KEY,
                         name VARCHAR(255),
                         address VARCHAR(255),
-                        position_lat FLOAT,
-                        position_lng FLOAT,
+                        position JSON,
                         banking BOOLEAN,
                         bonus BOOLEAN,
                         status VARCHAR(50),
@@ -133,18 +132,37 @@ class TestBikeAppIntegration(unittest.TestCase):
                 # Insert test station data
                 cursor.execute("""
                     INSERT INTO station 
-                    (number, name, address, position_lat, position_lng, banking, bonus, status, bike_stands)
+                    (number, name, address, position, banking, bonus, status, bike_stands)
                     VALUES 
-                    (1, 'Test Station', 'Test Address', 53.3498, -6.2603, 1, 0, 'OPEN', 20)
+                    (1, 'Test Station', 'Test Address', '{"lat": 53.3498, "lng": -6.2603}', 1, 0, 'OPEN', 20)
                     ON DUPLICATE KEY UPDATE
                     name = VALUES(name),
                     address = VALUES(address),
-                    position_lat = VALUES(position_lat),
-                    position_lng = VALUES(position_lng),
+                    position = VALUES(position),
                     banking = VALUES(banking),
                     bonus = VALUES(bonus),
                     status = VALUES(status),
                     bike_stands = VALUES(bike_stands)
+                """)
+                # Create station_history table if it doesn't exist
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS station_history (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        station_number INT,
+                        available_bikes INT,
+                        available_stands INT,
+                        timestamp DATETIME,
+                        FOREIGN KEY (station_number) REFERENCES station(number)
+                    )
+                """)
+                # Insert test history data
+                cursor.execute("""
+                    INSERT INTO station_history 
+                    (station_number, available_bikes, available_stands, timestamp)
+                    VALUES 
+                    (1, 10, 10, NOW()),
+                    (1, 8, 12, DATE_SUB(NOW(), INTERVAL 1 HOUR)),
+                    (1, 6, 14, DATE_SUB(NOW(), INTERVAL 2 HOUR))
                 """)
                 conn.commit()
 
